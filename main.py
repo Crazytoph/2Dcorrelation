@@ -39,6 +39,46 @@ def file_opening(filename):
 
     return matrix
 
+def PertubationMatrix (files, directory):
+    """ summorizes the CD values from a list of files into a matrix according to wavelength and
+     pertubation written in filesname e.g. temperature"""
+
+    # Define max. and min. values from measured wavelengths in nm
+    wave_max = 330
+    wave_min = 200
+
+    # create List of measured wavenlength
+    wave_list =[wave_min]
+    for i in range(wave_max - wave_min):
+        wave_list.append(wave_min+i+1)
+
+    # create PertubMatrix
+    PertubMatrix = pd.DataFrame({'Wavelength': wave_list})
+
+    # loop for each file
+    for i in range(len(files)):
+        path = os.path.join(directory, files[i])
+
+        # getting temperature from filesname
+        temp = files[i]
+        if temp[-7] == '.':
+            temp = temp[-9:-4]
+        else:
+            temp = temp[-6:-4]
+
+        # getting data as matrix and pass it on to excel
+        df = pd.DataFrame(file_opening(path), columns=['Wavelength', 'HT', temp, 'Absorption'])
+
+        # Delete three columns and change name of last
+        df = df.drop(df.columns[[1, 3]], axis=1)
+        PertubMatrix = pd.merge(PertubMatrix, df, on='Wavelength')
+
+    # Set Wavelength as Index
+    PertubMatrix.set_index(keys='Wavelength', inplace=True)
+
+    return PertubMatrix
+
+
 def excel_worksheet (files, directory):
     " creates for each file in LIST files a excel worksheet in a new excel document"
     name = input('Insert name for Excel document including \".xlsx\"')
@@ -76,9 +116,11 @@ if __name__ == '__main__':
     list_of_files = os.listdir(directory)
 
     # opening function to create excel worksheets and return final path
-    document = excel_worksheet(list_of_files, directory)
-    final_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), document)
-    print("Document successful saved under: \t" + final_path)
+    #document = excel_worksheet(list_of_files, directory)
+    #final_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), document)
+    #print("Document successful saved under: \t" + final_path)
+
+    print(PertubationMatrix(list_of_files, directory))
 
 
 
