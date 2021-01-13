@@ -71,7 +71,7 @@ def excel_worksheet (files, directory):
 # main function which is started when program run
 if __name__ == '__main__':
     # User input for files
-    print("Pleas insert the full directory of the Data: ")
+    print("Please insert the full directory of the Data: ")
     directory = input()
     list_of_files = os.listdir(directory)
 
