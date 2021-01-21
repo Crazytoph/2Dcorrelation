@@ -41,7 +41,10 @@ def file_opening(filename):
 
 def PertubationMatrix (files, directory):
     """ summorizes the CD values from a list of files into a matrix according to wavelength and
-     pertubation written in filesname e.g. temperature"""
+     pertubation written in filesname e.g. temperature
+     Input_ LIST files, STRING directory
+     Ouput: DATAFRAME PertubMatrix
+     """
 
     # Define max. and min. values from measured wavelengths in nm
     wave_max = 330
@@ -78,6 +81,31 @@ def PertubationMatrix (files, directory):
 
     return PertubMatrix
 
+def correlation (Exp_Spectrum):
+    """ calculates the average CD value per wavelength over temperature.
+    Input:  Dataframe Matrix of Wavelength-Temperature
+    Output: Dataframe one colume CD average per for each wavelength
+     """
+    Average = Exp_Spectrum.mean()
+    Dyn_Spectrum = Exp_Spectrum - Average
+    rows = Dyn_Spectrum.shape[0]
+    cols = Dyn_Spectrum.shape[1]
+
+    Sync_Spectrum = pd.DataFrame(index=Exp_Spectrum.index, columns=Exp_Spectrum.index)
+    Async_Spectrum = pd.DataFrame(index=Exp_Spectrum.index, columns=Exp_Spectrum.index)
+
+    arr = np.arange(1, rows+1)
+    H_N_Matrix = arr - np.array([arr]).T + np.identity(rows)
+    H_N_Matrix = 1/(np.pi*H_N_Matrix)
+    H_N_Matrix = (H_N_Matrix-H_N_Matrix.T)/2
+
+
+    for i in range(rows):
+        for k in range(rows):
+
+            Sync_Spectrum.iloc[i,k] = np.sum(Dyn_Spectrum.iloc[i]*Dyn_Spectrum.iloc[k], axis=0)/(cols-1)
+            arr2 = Dyn_Spectrum.iloc[i]*Dyn_Spectrum.iloc[k].T/(cols-1)
+    return arr2
 
 def excel_worksheet (files, directory):
     " creates for each file in LIST files a excel worksheet in a new excel document"
@@ -105,6 +133,11 @@ def excel_worksheet (files, directory):
             df = pd.DataFrame(file_opening(path), columns=header)
             df.to_excel(writer, sheet_name=sheetname, index=False)
 
+        # add Wavelengths_Temperature Matrix as extra sheet
+        df = PertubationMatrix(files, directory)
+        df.to_excel(writer, sheet_name="temp_matrix")
+
+
     return name
 
 
@@ -116,11 +149,10 @@ if __name__ == '__main__':
     list_of_files = os.listdir(directory)
 
     # opening function to create excel worksheets and return final path
-    #document = excel_worksheet(list_of_files, directory)
-    #final_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), document)
-    #print("Document successful saved under: \t" + final_path)
+    document = excel_worksheet(list_of_files, directory)
+    final_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), document)
+    print("Document successful saved under: \t" + final_path)
 
-    print(PertubationMatrix(list_of_files, directory))
 
 
 
