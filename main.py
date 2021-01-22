@@ -11,6 +11,7 @@ contact: Christoph Hadlich, christoph.hadlich@posteo.de
 
 # importing modules
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 import os
 
@@ -82,30 +83,66 @@ def PertubationMatrix (files, directory):
     return PertubMatrix
 
 def correlation (Exp_Spectrum):
-    """ calculates the average CD value per wavelength over temperature.
-    Input:  Dataframe Matrix of Wavelength-Temperature
-    Output: Dataframe one colume CD average per for each wavelength
+    """ calculates the Synchronous and Asynchronous 2D correlation of a given Spectrum.
+    Hereby the dynamic spectrum is taken by substracting the average.
+    Input:  Dataframe Matrix of measured Spectrum
+    Output: Array Synchronous Spectrum, Arr Asynchronous Spectrum
      """
-    Average = Exp_Spectrum.mean()
-    Dyn_Spectrum = Exp_Spectrum - Average
+    # calculating average and dynamic spectrum as numpy array
+    Average = Exp_Spectrum.mean(axis=1).to_numpy()
+    Dyn_Spectrum = Exp_Spectrum.to_numpy() - Average[:,None]
+
+    # getting number of rows and columns
     rows = Dyn_Spectrum.shape[0]
     cols = Dyn_Spectrum.shape[1]
 
-    Sync_Spectrum = pd.DataFrame(index=Exp_Spectrum.index, columns=Exp_Spectrum.index)
-    Async_Spectrum = pd.DataFrame(index=Exp_Spectrum.index, columns=Exp_Spectrum.index)
+    # creating 2d arrays for sync and async spectra
+    size = (rows, rows)
+    Sync_Spectrum = np.zeros(size)
+    Async_Spectrum = np.zeros(size)
 
+    # creating Hilbert_Noda_matrix for async spectrum
     arr = np.arange(1, rows+1)
     H_N_Matrix = arr - np.array([arr]).T + np.identity(rows)
     H_N_Matrix = 1/(np.pi*H_N_Matrix)
     H_N_Matrix = (H_N_Matrix-H_N_Matrix.T)/2
+    H_N_Matrix = H_N_Matrix[...,:cols]
 
-
+    # calculating sync and async values for each row and column
+    # Work_Note: maybe reduce calculation due to symmetry?
     for i in range(rows):
         for k in range(rows):
 
-            Sync_Spectrum.iloc[i,k] = np.sum(Dyn_Spectrum.iloc[i]*Dyn_Spectrum.iloc[k], axis=0)/(cols-1)
-            arr2 = Dyn_Spectrum.iloc[i]*Dyn_Spectrum.iloc[k].T/(cols-1)
-    return arr2
+            Sync_Spectrum[i,k] = np.sum(Dyn_Spectrum[i]*Dyn_Spectrum[k])/(cols-1)
+            Async_Spectrum[i,k] = np.sum(Dyn_Spectrum[i]*np.sum(np.matmul(H_N_Matrix,Dyn_Spectrum[k])))/(cols-1)
+
+    # returns Spectra; maybe change later Dtype back to DataFrame
+    return Sync_Spectrum, Async_Spectrum
+
+
+def Heatmap_plot(df):
+    """Plots heatmap"""
+
+    # Displaying dataframe as an heatmap
+    # with diverging colourmap as RdYlBu
+    plt.imshow(df, cmap="RdYlBu")
+
+    # Displaying a color bar to understand
+    # which color represents which range of data
+    plt.colorbar()
+
+    # Assigning labels of x-axis
+    # according to dataframe
+    plt.xticks(range(len(df)), df.columns)
+
+    # Assigning labels of y-axis
+    # according to dataframe
+    plt.yticks(range(len(df)), df.index)
+
+    # Displaying the figure
+    plt.show()
+
+
 
 def excel_worksheet (files, directory):
     " creates for each file in LIST files a excel worksheet in a new excel document"
@@ -137,6 +174,12 @@ def excel_worksheet (files, directory):
         df = PertubationMatrix(files, directory)
         df.to_excel(writer, sheet_name="temp_matrix")
 
+        arr1, arr2 = correlation(df)
+        df1 = pd.DataFrame(arr1)
+        df2 = pd.DataFrame(arr2)
+        Heatmap_plot(df1)
+        df1.to_excel(writer, sheet_name="Sync_Spec")
+        df2.to_excel(writer, sheet_name="Async_Spec")
 
     return name
 
@@ -152,7 +195,6 @@ if __name__ == '__main__':
     document = excel_worksheet(list_of_files, directory)
     final_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), document)
     print("Document successful saved under: \t" + final_path)
-
 
 
 
