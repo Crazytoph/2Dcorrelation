@@ -10,10 +10,11 @@ Version 1.0
 
 # importing modules
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import cdata
+import hotznplots as plot
+
 
 def file_opening(filename):
     """Extract relevant data from file.
@@ -109,29 +110,6 @@ def correlation(exp_spec):
     return sync_spec, async_spec
 
 
-def heatmap_plot(df):
-    """Plots heatmap"""
-
-    # Displaying dataframe as an heatmap
-    # with diverging colourmap as RdYlBu
-    plt.imshow(df, cmap="RdYlBu")
-
-    # Displaying a color bar to understand
-    # which color represents which range of data
-    plt.colorbar()
-
-    # Assigning labels of x-axis
-    # according to dataframe
-    plt.xticks(range(len(df)), df.columns)
-
-    # Assigning labels of y-axis
-    # according to dataframe
-    plt.yticks(range(len(df)), df.index)
-
-    # Displaying the figure
-    plt.show()
-
-
 def excel_worksheet(circ_data):
     """ Transforms data to Excel.
 
@@ -150,7 +128,7 @@ def excel_worksheet(circ_data):
     """
     # getting name through input and creating path for ExcelWriter
     name = input('Insert name for Excel document including \".xlsx\"')
-    excel_path  = os.path.join(*circ_data.path, name)
+    excel_path = os.path.join(*circ_data.path, name)
     # specify column names and units
     # header = [["Wavelength", "CD", "HT", "Absorption"],
     #           ["nm", "mdeg", "V", ""]
@@ -159,7 +137,6 @@ def excel_worksheet(circ_data):
 
     # creating excel document and let it open while adding sheets
     with pd.ExcelWriter(excel_path) as writer:
-
         for key in circ_data.data:
             df = pd.DataFrame(circ_data.data[key], columns=header)
             df = df.set_index("Wavelength")
@@ -173,7 +150,7 @@ def excel_worksheet(circ_data):
         """arr1, arr2 = correlation(df)
         df1 = pd.DataFrame(arr1)
         df2 = pd.DataFrame(arr2)
-        heatmap_plot(df2)
+        plot.heatmap_plot(df2)
         df1.to_excel(writer, sheet_name="Sync_Spec")
         df2.to_excel(writer, sheet_name="Async_Spec")"""
 
@@ -229,7 +206,7 @@ if __name__ == '__main__':
     print("Please insert the full directory of the Data: ")
 
     path = input()
-    # get single folder names as list
+    # split path into single folder names as list
     path_split = []
     while 1:
         parts = os.path.split(path)
@@ -243,9 +220,13 @@ if __name__ == '__main__':
             path = parts[0]
             path_split.insert(0, parts[1])
 
-    #  recreating final path for simplicity reason
+    #  recreating final path for documentary reasons reason
     final_path = os.path.join(*path_split)
 
-    data_in_dic = folder_opening(final_path)
-    measurement1 = cdata.CircData(path_split, data_in_dic)
-    print(excel_worksheet(measurement1))
+    # test part
+    data_in_dic = folder_opening(final_path) # getting data
+    measurement1 = cdata.CircData(path_split, data_in_dic)  # creating object
+    temperatures = measurement1.temp[::5] # getting temp values for plotting
+    plot.function_plot(measurement1.temp_val(), temperatures, min=50,
+                       limit= 100) #
+    # plotting

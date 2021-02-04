@@ -8,8 +8,7 @@ CD_Spectrometer and Devices with similar output.
 
 Classes:
 -------
-
-F
+CircData
 """
 
 import numpy as np
@@ -17,15 +16,33 @@ import pandas as pd
 
 
 class CircData:
-    """A class to represent Data of one measurement
+    """A class to represent Data of one CD measurement.
 
-    Summary
+    An object of this class contains the whole data of one measurement of the
+    JASCO 8015 CD_Spectrometer. For each temperature step, values are saved
+    in array and combined with temperature in the dictionary 'data'. Other
+    parameters represent the sample type defined in through the repository.
+    The methods do small data treatment and simple calculations.
 
     Attributes:
     ----------
+    path: string
+        path of the original measurement files
+    dna: string
+        type of DNA measured
+    denaturant:  string
+        type of denaturant used
+    concentration: string
+        denaturant concentration used
+    data: dictionary
+        measured values for each temperature step
+    temp: list
+        list of all measured temperatures
 
     Methods:
     -------
+    temp_val():
+        returns CD values in a Dataframe for wavelengths and temperature
     """
 
     def __init__(self, path, data):
@@ -34,11 +51,11 @@ class CircData:
         Parameters:
         _________
 
-            path: list
-                folder names as string in order of sub-folder hierarchy
-             files: dictionary
-                all raw data from each measurement point as arrays linked to
-                their respective temperature
+        path: list
+            folder names as string in order of sub-folder hierarchy
+        files: dictionary
+            all raw data from each measurement point as arrays linked to
+            heir respective temperature
 
         Example:
         -------
@@ -54,6 +71,7 @@ class CircData:
         self.denaturant = path[-2]
         self.concentration = path[-1]
         self.data = data
+        self.temp = list(data.keys())
 
     def temp_val(self):
         """Creates wavelength-temperature dataframe.
@@ -64,8 +82,8 @@ class CircData:
 
         Returns:
         ---------
-            temp_matrix: data-frame
-                index is the wavelengths, columns the temperature
+        temp_matrix: data-frame
+            index is the wavelengths, columns the temperature
         """
         # Define max. and min. values from measured wavelengths in nm
         wave_max = 330
