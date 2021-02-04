@@ -40,7 +40,19 @@ def heatmap_plot(df):
 def function_plot(df, cols, min=0, limit=None):
     """Plots simple graph of selected cols
 
-    This function plots sever
+    This function plots several CD values for each selected Temperature Column
+    'cols'
+
+    Parameters:
+    ----------
+    df: DataFrame
+        data for plot
+    cols: list
+        columns which should be plotted
+    min, limit: int
+        number of wavelength which should be skipped on the left side resp.
+        max. number of wavelength
+
     """
     # setting max
     if limit is None:
