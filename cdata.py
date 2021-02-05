@@ -37,13 +37,21 @@ class CircData:
         denaturant concentration used
     data: dictionary
         measured values for each temperature step
-    temp: list
+    temp_list: list
         list of all measured temperatures
+    temp_df: DataFrame
+        df of all CD-values depending on wavelength and temperature
 
     Methods:
     -------
     temp_val():
         returns CD values in a Dataframe for wavelengths and temperature
+    __path_split():
+        split path into folder names
+    __folder_opening():
+        opens each file in folder
+    --file_opening():
+        extracts data from file
     """
 
     def __init__(self, reps):
@@ -69,7 +77,8 @@ class CircData:
         self.denaturant = self.__path_split()[-2]
         self.concentration = self.__path_split()[-1]
         self.data = self.__folder_opening()
-        self.temp = list(self.data.keys())
+        self.temp_list = list(self.data.keys())
+        self.temp_df = self.temp_val()
 
     def temp_val(self):
         """Creates wavelength-temperature dataframe.
@@ -167,7 +176,8 @@ class CircData:
 
         return data
 
-    def __file_opening(self, filename):
+    @staticmethod
+    def __file_opening(filename):
         """Extract relevant data from file.
 
         This function opens a given file in .txt-format and returns the measured
