@@ -14,27 +14,50 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def heatmap_plot(df):
-    """Plots heatmap"""
+def heatmap_plot(df, min=0, limit=None):
+    """Plots heatmap.
 
-    # Displaying dataframe as an heatmap
-    # with diverging colourmap as RdYlBu
-    plt.imshow(df, cmap="RdYlBu")
+    This function plots a heatmap of a DataFrame 'df' from 'min' to 'limit'
+    rows and columns.
 
-    # Displaying a color bar to understand
-    # which color represents which range of data
-    plt.colorbar()
+    Parameters:
+    ----------
+    df: DataFrame
+        data for plot
+    min, limit: int
+        number of wavelength which should be skipped on the left side resp.
+        max. number of wavelength
 
-    # Assigning labels of x-axis
-    # according to dataframe
-    plt.xticks(range(len(df)), df.columns)
+    Notes:
+    -----
+    To-Do:  defining map-style, adapt min, limit to nm-input,
+    input change to array?
 
-    # Assigning labels of y-axis
-    # according to dataframe
-    plt.yticks(range(len(df)), df.index)
+    """
 
+    # getting max value
+    if limit is None:
+        max = len(df) + 1
+    else:
+        max = limit + 1
+
+    # creating array from DataFrame, create Figure and plot
+    arr = pd.DataFrame.to_numpy(df.iloc[min:max, min:max])
+    fig, ax = plt.subplots()
+
+    im = ax.imshow(arr, cmap='tab20c', vmax=abs(arr).max(), vmin=-abs(
+        arr).max())
+
+    # make it nice
+    ax.set_title('Title')
+    ax.set_xlabel('x-label')
+    ax.set_ylabel('y-label')
+    ax.set_xticks(np.arange(len(df.columns)), list(df.columns))
+    ax.set_yticks(np.arange(len(df)), list(df.index))
+    fig.colorbar(im)
     # Displaying the figure
     plt.show()
+    plt.close(fig)
 
 
 def function_plot(df, cols, min=0, limit=None):
@@ -53,20 +76,24 @@ def function_plot(df, cols, min=0, limit=None):
         number of wavelength which should be skipped on the left side resp.
         max. number of wavelength
 
+    Notes:
+    -----
+    To-Do:  defining line-style, adapt min, limit to nm-input,
+    input change to array?
     """
     # setting max
     if limit is None:
-        max = len(df)
+        max = len(df) + 1
     else:
-        max = limit
+        max = limit + 1
 
-    x = list(df.index)[min:max] # getting x-values
+    x = list(df.index)[min:max]  # getting x-values
     fig, ax = plt.subplots()  # create figure containing single axis
 
     for i in cols:  # iterating through all selected colums
-        y = pd.DataFrame.to_numpy(df[i])    # getting y-values
+        y = pd.DataFrame.to_numpy(df[i])  # getting y-values
         y = y[min:max]
-        ax.plot(x, y, label=i)  # plot
+        ax.plot(x, y, 'go--', label=i)  # plot
 
     ax.set_xlabel('Wavelength[nm]')  # Add an x-label to the axes.
     ax.set_ylabel('CD [mdeg]')  # Add a y-label to the axes.
@@ -74,3 +101,4 @@ def function_plot(df, cols, min=0, limit=None):
     ax.legend()  # Add a legend.
 
     plt.show()  # show
+    plt.close(fig)

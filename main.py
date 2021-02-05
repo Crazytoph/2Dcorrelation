@@ -16,47 +16,6 @@ import cdata
 import hotznplots as plot
 
 
-def file_opening(filename):
-    """Extract relevant data from file.
-
-    This function opens a given file in .txt-format and returns the measured
-    data as 'matrix'. Specialized on the output of the JASCO 8015
-    CD_Spectrometer.
-
-    Parameter:
-    ---------
-        filename: string
-            name of the file
-
-    Returns:
-    -------
-        matrix: array-like
-            Data
-    """
-
-    file = open(filename, "r")
-    list_of_lines = file.readlines()
-
-    # Parameter for head and tail part of document which will be deleted
-    head = 21
-    tail = 152
-    del list_of_lines[tail:]
-    del list_of_lines[:head]
-
-    # separating numbers into sublist
-    for i in range(len(list_of_lines)):
-        list_of_lines[i] = list_of_lines[i].replace("\n", "")
-        list_of_lines[i] = list_of_lines[i].replace(",", ".")
-        list_of_lines[i] = list_of_lines[i].split('\t', 3)
-
-    # transform list of lists to array of float-type
-    matrix = np.array(list_of_lines)
-    matrix = matrix.astype(np.float)
-    file.close()
-
-    return matrix
-
-
 def correlation(exp_spec):
     """ Performs 2D correlation analysis.
 
@@ -157,76 +116,12 @@ def excel_worksheet(circ_data):
     return excel_path
 
 
-def folder_opening(files_path):
-    """Opens folder for given repository and summarizes data.
-
-    Look into folder under 'reps' and opens each file with 'file_opening'
-    combing the returned data-array with the rounded measured temperature.
-
-    Parameters:
-    ----------
-        files_path: string
-            path of the files
-    Returns:
-    -------
-        data: dictionary
-            each array as value with the measured temperature as key
-    """
-    # getting list of files and create empty dictionary
-    files = os.listdir(files_path)
-    data = {}
-
-    # loop for each file
-    for i in range(len(files)):
-        repository = os.path.join(files_path, files[i])
-        # getting temperature from filesname
-        temp = files[i]
-        if temp[-7] == '.':
-            temp = temp[-9:-4]
-        else:
-            temp = temp[-6:-4]
-        # round temp to int
-        exact = float(temp)
-        up = np.ceil(exact)
-        down = np.floor(exact)
-        if np.abs(up - exact) < np.abs(exact - down):
-            temp = int(up)
-        else:
-            temp = int(down)
-
-        # adding values to data
-        data[temp] = file_opening(repository)
-
-    return data
-
-
 # main function which is started when program run
 if __name__ == '__main__':
     # User input for files
     print("Please insert the full directory of the Data: ")
 
     path = input()
-    # split path into single folder names as list
-    path_split = []
-    while 1:
-        parts = os.path.split(path)
-        if parts[0] == path:  # sentinel for absolute paths
-            path_split.insert(0, parts[0])
-            break
-        elif parts[1] == path:  # sentinel for relative paths
-            path_split.insert(0, parts[1])
-            break
-        else:
-            path = parts[0]
-            path_split.insert(0, parts[1])
 
-    #  recreating final path for documentary reasons reason
-    final_path = os.path.join(*path_split)
-
-    # test part
-    data_in_dic = folder_opening(final_path) # getting data
-    measurement1 = cdata.CircData(path_split, data_in_dic)  # creating object
-    temperatures = measurement1.temp[::5] # getting temp values for plotting
-    plot.function_plot(measurement1.temp_val(), temperatures, min=50,
-                       limit= 100) #
-    # plotting
+    data = cdata.CircData(path)
+    plot.function_plot(data.temp_val(), data.temp[::5])

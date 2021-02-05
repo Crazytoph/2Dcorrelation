@@ -13,6 +13,7 @@ CircData
 
 import numpy as np
 import pandas as pd
+import os
 
 
 class CircData:
@@ -45,33 +46,30 @@ class CircData:
         returns CD values in a Dataframe for wavelengths and temperature
     """
 
-    def __init__(self, path, data):
+    def __init__(self, reps):
         """Constructs all necessary attributes of the Data
 
         Parameters:
         _________
 
-        path: list
+        reps: list
             folder names as string in order of sub-folder hierarchy
-        files: dictionary
-            all raw data from each measurement point as arrays linked to
-            heir respective temperature
 
         Example:
         -------
-        Path-List should be like: ["repository", "DNA-type","denaturant",
+        Path-List should be like: ["Rest", "DNA-type","denaturant",
         "concentration"]
 
         Notes:
         -----
         Access type (public, protected, private) needs still to be defined.
         """
-        self.path = path
-        self.dna = path[-3]
-        self.denaturant = path[-2]
-        self.concentration = path[-1]
-        self.data = data
-        self.temp = list(data.keys())
+        self.path = reps
+        self.dna = self.__path_split()[-3]
+        self.denaturant = self.__path_split()[-2]
+        self.concentration = self.__path_split()[-1]
+        self.data = self.__folder_opening()
+        self.temp = list(self.data.keys())
 
     def temp_val(self):
         """Creates wavelength-temperature dataframe.
@@ -111,3 +109,99 @@ class CircData:
         temp_matrix = temp_matrix.set_index('wavelength')
 
         return temp_matrix
+
+    def __path_split(self):
+        """Splits path into a list of folder names."""
+        # split path into single folder names as list
+        path_split = []
+        path = self.path
+        while 1:
+            parts = os.path.split(path)
+            if parts[0] == path:  # sentinel for absolute paths
+                path_split.insert(0, parts[0])
+                break
+            elif parts[1] == path:  # sentinel for relative paths
+                path_split.insert(0, parts[1])
+                break
+            else:
+                path = parts[0]
+                path_split.insert(0, parts[1])
+
+        return path_split
+
+    def __folder_opening(self):
+        """Opens folder for given repository and summarizes data.
+
+        Look into folder under 'reps' and opens each file with 'file_opening'
+        combing the returned data-array with the rounded measured temperature.
+
+        Returns:
+        -------
+            data: dictionary
+                each array as value with the measured temperature as key
+        """
+        # getting list of files and create empty dictionary
+        files = os.listdir(self.path)
+        data = {}
+
+        # loop for each file
+        for i in range(len(files)):
+            # getting temperature from filenames
+            temp = files[i]
+            if temp[-7] == '.':
+                temp = temp[-9:-4]
+            else:
+                temp = temp[-6:-4]
+            # round temp to int
+            exact = float(temp)
+            up = np.ceil(exact)
+            down = np.floor(exact)
+            if np.abs(up - exact) < np.abs(exact - down):
+                temp = int(up)
+            else:
+                temp = int(down)
+
+            # adding values to data
+            repository = os.path.join(self.path, files[i])
+            data[temp] = self.__file_opening(repository)
+
+        return data
+
+    def __file_opening(self, filename):
+        """Extract relevant data from file.
+
+        This function opens a given file in .txt-format and returns the measured
+        data as 'matrix'. Specialized on the output of the JASCO 8015
+        CD_Spectrometer.
+
+        Parameter:
+        ---------
+            filename: string
+                name of the file
+
+        Returns:
+        -------
+            matrix: array-like
+                Data
+        """
+        file = open(filename, "r")
+        list_of_lines = file.readlines()
+
+        # Parameter for head and tail part of document which will be deleted
+        head = 21
+        tail = 152
+        del list_of_lines[tail:]
+        del list_of_lines[:head]
+
+        # separating numbers into sublist
+        for i in range(len(list_of_lines)):
+            list_of_lines[i] = list_of_lines[i].replace("\n", "")
+            list_of_lines[i] = list_of_lines[i].replace(",", ".")
+            list_of_lines[i] = list_of_lines[i].split('\t', 3)
+
+        # transform list of lists to array of float-type
+        matrix = np.array(list_of_lines)
+        matrix = matrix.astype(np.float)
+        file.close()
+
+        return matrix
