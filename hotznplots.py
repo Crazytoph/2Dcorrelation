@@ -60,18 +60,18 @@ def heatmap_plot(df, min=0, limit=None):
     plt.close(fig)
 
 
-def function_plot(df, cols, min=0, limit=None):
-    """Plots simple graph of selected cols
+def function_plot(df, df2=None, idx=[0], min=0, limit=None):
+    """Plots simple graph of selected idx
 
     This function plots several CD values for each selected Temperature Column
-    'cols'
+    'idx'
 
     Parameters:
     ----------
     df: DataFrame
         data for plot
-    cols: list
-        columns which should be plotted
+    idx: list
+        index which should be plotted
     min, limit: int
         number of wavelength which should be skipped on the left side resp.
         max. number of wavelength
@@ -83,19 +83,23 @@ def function_plot(df, cols, min=0, limit=None):
     """
     # setting max
     if limit is None:
-        max = len(df) + 1
+        max = len(df.columns) + 1
     else:
         max = limit + 1
 
-    x = list(df.index)[min:max]  # getting x-values
+    x = list(df.columns)[min:max]  # getting x-values
     fig, ax = plt.subplots()  # create figure containing single axis
 
-    for i in cols:  # iterating through all selected colums
-        y = pd.DataFrame.to_numpy(df[i])  # getting y-values
-        y = y[min:max]
-        ax.plot(x, y, 'go--', label=i)  # plot
+    for i in idx:  # iterating through all selected colums
+        y = pd.DataFrame.to_numpy(df.iloc[i, min: max])     # getting y-values
+        ax.plot(x, y, 'gx--', linewidth=1, label=i)  # plot
 
-    ax.set_xlabel('Wavelength[nm]')  # Add an x-label to the axes.
+    if df2 is not None:
+        x2 = list(df2.columns)[min:]
+        y2 = pd.DataFrame.to_numpy(df2.iloc[i, min:])
+        ax.plot(x2, y2, 'r,--', linewidth=1, label='interpol')
+
+    ax.set_xlabel('Temperature[K]')  # Add an x-label to the axes.
     ax.set_ylabel('CD [mdeg]')  # Add a y-label to the axes.
     ax.set_title("CD values")  # Add a title to the axes.
     ax.legend()  # Add a legend.

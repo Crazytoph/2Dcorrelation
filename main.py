@@ -16,6 +16,7 @@ import cdata
 import hotznplots as plot
 import analise as ana
 
+
 def excel_worksheet(circ_data):
     """ Transforms data to Excel.
 
@@ -71,8 +72,8 @@ if __name__ == '__main__':
     path = input()
     # test  stuff
     data = cdata.CircData(path)
-    plot.function_plot(data.temp_df, data.temp_list[::5])
-    arr = data.temp_df.to_numpy()
-    arr2, arr3 = ana.correlation(arr)
-    df = pd.DataFrame(arr2)
-    plot.heatmap_plot(df)
+    f = ana.interpolate(data.temp_df)
+    x_new = np.linspace(data.temp_list[0], data.temp_list[-1], num=100)
+    y_new = np.array(f(x_new))
+    df = pd.DataFrame(y_new[:, None].T, columns=x_new)
+    plot.function_plot(data.temp_df, df, idx=[0])

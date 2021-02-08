@@ -14,6 +14,7 @@ maximum(arr):
 # imports
 import numpy as np
 import pandas as pd  # to be deleted
+import scipy.interpolate
 
 
 def correlation(exp_spec):
@@ -76,4 +77,12 @@ def correlation(exp_spec):
 
 def maximum(arr):
     """Returns the maximum value of array 'arr'."""
-    return np.max(arr)
+    return np.amax(arr)
+
+
+def interpolate(df):
+    """Interpolates a function for a given DataFrame. """
+    x = list(df.columns)
+    y = list(df.iloc[0, :])
+    f = scipy.interpolate.interp1d(x, y, kind='cubic')
+    return f
