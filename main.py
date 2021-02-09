@@ -71,5 +71,6 @@ if __name__ == '__main__':
 
     path = input()
     # test  stuff
-    data = cdata.CircData(path)
-    plot.heatmap_plot(data.temp_df)
+    data = cdata.CData(path)
+
+    plot.heatmap(data.t_df, data.t_df)
