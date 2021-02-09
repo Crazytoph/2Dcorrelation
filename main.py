@@ -72,8 +72,4 @@ if __name__ == '__main__':
     path = input()
     # test  stuff
     data = cdata.CircData(path)
-    f = ana.interpolate(data.temp_df)
-    x_new = np.linspace(data.temp_list[0], data.temp_list[-1], num=100)
-    y_new = np.array(f(x_new))
-    df = pd.DataFrame(y_new[:, None].T, columns=x_new)
-    plot.function_plot(data.temp_df, df, idx=[0])
+    plot.heatmap_plot(data.temp_df)

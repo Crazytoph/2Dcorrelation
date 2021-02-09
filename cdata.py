@@ -8,7 +8,7 @@ CD_Spectrometer and Devices with similar output.
 
 Classes:
 -------
-CircData
+CData
 """
 
 import numpy as np
@@ -16,8 +16,8 @@ import pandas as pd
 import os
 
 
-class CircData:
-    """A class to represent Data of one CD measurement.
+class CData:
+    """A class to represent whole Data of one CD measurement.
 
     An object of this class contains the whole data of one measurement of the
     JASCO 8015 CD_Spectrometer. For each temperature step, values are saved
@@ -37,14 +37,14 @@ class CircData:
         denaturant concentration used
     data: dictionary
         measured values for each temperature step
-    temp_list: list
+    t_list: list
         list of all measured temperatures
-    temp_df: DataFrame
+    t_df: DataFrame
         df of all CD-values depending on wavelength and temperature
 
     Methods:
     -------
-    temp_val():
+    t_df():
         returns CD values in a Dataframe for wavelengths and temperature
     __path_split():
         split path into folder names
@@ -54,33 +54,28 @@ class CircData:
         extracts data from file
     """
 
-    def __init__(self, reps):
+    def __init__(self, path):
         """Constructs all necessary attributes of the Data
 
         Parameters:
         _________
 
-        reps: list
-            folder names as string in order of sub-folder hierarchy
-
-        Example:
-        -------
-        Path-List should be like: ["Rest", "DNA-type","denaturant",
-        "concentration"]
+        path: string
+            path of data
 
         Notes:
         -----
         Access type (public, protected, private) needs still to be defined.
         """
-        self.path = reps
+        self.path = path
         self.dna = self.__path_split()[-3]
         self.denaturant = self.__path_split()[-2]
         self.concentration = self.__path_split()[-1]
         self.data = self.__folder_opening()
-        self.temp_list = list(self.data.keys())
-        self.temp_df = self.temp_val()
+        self.t_list = list(self.data.keys())
+        self.t_df = self.t_df()
 
-    def temp_val(self):
+    def t_df(self):
         """Creates wavelength-temperature dataframe.
 
         Takes the data dictionary and takes the CD value in relation to
@@ -101,13 +96,13 @@ class CircData:
         for i in range(wave_max - wave_min):
             wave_list.append(wave_min + i + 1)
 
-        # create PertubMatrix
+        # create DataFrame
         temp_matrix = pd.DataFrame(wave_list, columns=[0])
 
         # iterate through dictionary adding columns to dataframe
         for key in self.data:
             col = self.data[key]
-            col = col[..., 0:3:2]
+            col = col[..., 0:2]
             df = pd.DataFrame(col, columns=[0, key])
             temp_matrix = pd.merge(temp_matrix, df, on=0)
 
@@ -121,9 +116,11 @@ class CircData:
 
     def __path_split(self):
         """Splits path into a list of folder names."""
+
         # split path into single folder names as list
         path_split = []
         path = self.path
+
         while 1:
             parts = os.path.split(path)
             if parts[0] == path:  # sentinel for absolute paths
@@ -161,11 +158,12 @@ class CircData:
                 temp = temp[-9:-4]
             else:
                 temp = temp[-6:-4]
+
             # round temp to int
             exact = float(temp)
             up = np.ceil(exact)
             down = np.floor(exact)
-            if np.abs(up - exact) < np.abs(exact - down):
+            if np.abs(up - exact) <= np.abs(exact - down):
                 temp = int(up)
             else:
                 temp = int(down)
@@ -180,8 +178,8 @@ class CircData:
     def __file_opening(filename):
         """Extract relevant data from file.
 
-        This function opens a given file in .txt-format and returns the measured
-        data as 'matrix'. Specialized on the output of the JASCO 8015
+        This function opens a given file in .txt-format and returns the
+        measured data as 'array'. Specialized on the output of the JASCO 8015
         CD_Spectrometer.
 
         Parameter:

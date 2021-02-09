@@ -25,8 +25,8 @@ def heatmap_plot(df, min=0, limit=None):
     df: DataFrame
         data for plot
     min, limit: int
-        number of wavelength which should be skipped on the left side resp.
-        max. number of wavelength
+        number of columns which should be skipped on the left side resp.
+        max. number of columns
 
     Notes:
     -----
@@ -37,7 +37,7 @@ def heatmap_plot(df, min=0, limit=None):
 
     # getting max value
     if limit is None:
-        max = len(df) + 1
+        max = len(df.columns) + 1
     else:
         max = limit + 1
 
