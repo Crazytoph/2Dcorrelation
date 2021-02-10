@@ -44,7 +44,7 @@ class CData:
 
     Methods:
     -------
-    t_df():
+    temp_df():
         returns CD values in a Dataframe for wavelengths and temperature
     __path_split():
         split path into folder names
@@ -73,9 +73,9 @@ class CData:
         self.concentration = self.__path_split()[-1]
         self.data = self.__folder_opening()
         self.t_list = list(self.data.keys())
-        self.t_df = self.t_df()
+        self.t_df = self.temp_df()
 
-    def t_df(self):
+    def temp_df(self):
         """Creates wavelength-temperature dataframe.
 
         Takes the data dictionary and takes the CD value in relation to
