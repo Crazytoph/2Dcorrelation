@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
-            x_label="x_axis", y_label="y_axis", title="Heatmap"
+            x_label="temperature[K]", y_label="wavelength[nm]", title="Heatmap"
             ):
     """Plots heatmap.
 
@@ -27,9 +27,9 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
     *df: DataFrames
         data for plot
     x_min, x_max: int
-        min and max value of column which should be plotted
-    y_min, y_max: int
         min and max value of index which should be plotted
+    y_min, y_max: int
+        min and max value of column which should be plotted
     title, x_label, y_label: string
         description for plot
 
@@ -42,20 +42,30 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
     # create running variable and figure
     k = 1
     fig = plt.figure()
+    # get min, max values if not specified
+    if x_min is None:
+        x_min = list(df[0].index)[0]
+    if x_max is None:
+        x_max = list(df[0].index)[-1]
+    if y_min is None:
+        y_min = list(df[0].columns)[0]
+    if y_max is None:
+        y_max = list(df[0].columns)[-1]
 
     # for each dataframe, get plot
     for i in df:
         arr = pd.DataFrame.to_numpy(i.loc[x_min:x_max, y_min:y_max])
-        ax = fig.add_subplot(1, 2, k)
-        im = ax.imshow(arr.T, aspect='auto', cmap='RdYlBu',
-                       vmax=abs(arr).max(), vmin=-abs(arr).max())
+        arr = arr.T
+        ax = fig.add_subplot(1, len(df), k)
+        im = ax.imshow(arr, aspect='auto', cmap='gist_earth',
+                       vmax=5, vmin=-8, interpolation='bicubic',
+                       extent=[y_min, y_max, x_min, x_max], origin="lower")
         k = k + 1
-
-    # make it nice
-    ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    fig.colorbar(im)
+        # make it nice
+        ax.set_title(title)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        fig.colorbar(im)
 
     # Displaying the figure
     plt.show()
