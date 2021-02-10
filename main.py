@@ -73,4 +73,6 @@ if __name__ == '__main__':
     # test  stuff
     data = cdata.CData(path)
 
-    plot.function(data.t_df, rows=[220])
+
+    plot.heatmap(data.t_df, data.t_df)
+    # test
