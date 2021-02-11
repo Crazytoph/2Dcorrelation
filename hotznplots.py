@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
+def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
             x_label="temperature[K]", y_label="wavelength[nm]", title="Heatmap"
             ):
     """Plots heatmap.
@@ -27,21 +27,26 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
     *df: DataFrames
         data for plot
     x_min, x_max: int
+        Default: None
         min and max value of index which should be plotted
     y_min, y_max: int
+        Default: None
         min and max value of column which should be plotted
+    swap: boolean
+        Default: True
+        whether the axes should be swapped
     title, x_label, y_label: string
         description for plot
 
     Notes:
     -----
-    To-Do:  defining map-style, adapt min, limit to nm-input,
-    input change to array?
+    To-Do:  defining map-style, vmax, vmin?!
 
     """
     # create running variable and figure
     k = 1
     fig = plt.figure()
+
     # get min, max values if not specified
     if x_min is None:
         x_min = list(df[0].index)[0]
@@ -55,25 +60,26 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None,
     # for each dataframe, get plot
     for i in df:
         arr = pd.DataFrame.to_numpy(i.loc[x_min:x_max, y_min:y_max])
-        arr = arr.T
+        if swap:
+            arr = arr.T
         ax = fig.add_subplot(1, len(df), k)
         im = ax.imshow(arr, aspect='auto', cmap='gist_earth',
                        vmax=5, vmin=-8, interpolation='bicubic',
                        extent=[y_min, y_max, x_min, x_max], origin="lower")
         k = k + 1
         # make it nice
-        ax.set_title(title)
+
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         fig.colorbar(im)
 
     # Displaying the figure
+    plt.title(title)
     plt.show()
     plt.close(fig)
 
 
-
-def function(rows, *args, df2=None, x_min=None, x_max=None,
+def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
              x_label="Temperature[K]", y_label="CD values[mdeg]",
              title="Nice Plot"):
     """Plots simple graph of DataFrames
@@ -91,6 +97,8 @@ def function(rows, *args, df2=None, x_min=None, x_max=None,
         rows of DataFrames which should be plotted
     x_min, x_max: int
         min and max columns index which should be plotted
+    swap: boolean
+        whether to change axes
     title, x_label, y_label: string
         description for plot
 
@@ -105,18 +113,19 @@ def function(rows, *args, df2=None, x_min=None, x_max=None,
     fig = plt.figure()  # create figure
 
     # iterate through df in args and plot the rows
-    ax = fig.add_subplot(1, 2, 1)
+    ax = fig.add_subplot(1, 2, 1)   # create subplot
     for df in args:
         for i in rows:
-            x = list(df.loc[:, x_min:x_max].columns)
-            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])
+            x = list(df.loc[:, x_min:x_max].columns)    # get x-values
+            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])   #get y-values
+            if swap:    # change axis if wanted
+                x, y = y, x
             ax.plot(x, y, linestyle='--', color=colors[k], linewidth=1, label=i
                     )
             k = k + 1
 
     ax.set_xlabel(x_label)  # Add an x-label to the axes.
     ax.set_ylabel(y_label)  # Add a y-label to the axes.
-    ax.set_title(title)  # Add a title to the axes.
     ax.legend()  # Add a legend.
 
     # if df2 exist, 2nd subplot is plotted
@@ -125,15 +134,17 @@ def function(rows, *args, df2=None, x_min=None, x_max=None,
             ax2 = fig.add_subplot(1, 2, 2)
             x2 = list(df2.loc[:, x_min:x_max].columns)
             y2 = pd.DataFrame.to_numpy(df2.loc[i, x_min:x_max])
+            if swap:
+                x2, y2 = y2, x2
             ax2.plot(x2, y2, linestyle='-.', color=colors[c], linewidth=2,
                      label=i)
             c = c + 1
 
         ax2.set_xlabel(x_label)  # Add an x-label to the axes.
         ax2.set_ylabel(y_label)  # Add a y-label to the axes.
-        ax2.set_title(title)  # Add a title to the axes.
         ax2.legend()  # Add a legend.
 
     # show plot and then close figure
+    plt.title(title)
     plt.show()
     plt.close(fig)

@@ -68,9 +68,10 @@ class CData:
         Access type (public, protected, private) needs still to be defined.
         """
         self.path = path
-        self.dna = self.__path_split()[-3]
-        self.denaturant = self.__path_split()[-2]
-        self.concentration = self.__path_split()[-1]
+        self.dna = self.__name_split()[0]
+        self.origami = self.__name_split()[1]
+        self.denaturant = self.__name_split()[-1]
+        self.concentration = self.__name_split()[-2]
         self.data = self.__folder_opening()
         self.t_list = list(self.data.keys())
         self.t_df = self.temp_df()
@@ -114,26 +115,16 @@ class CData:
 
         return temp_matrix
 
-    def __path_split(self):
+    def __name_split(self):
         """Splits path into a list of folder names."""
 
-        # split path into single folder names as list
-        path_split = []
-        path = self.path
-
-        while 1:
-            parts = os.path.split(path)
-            if parts[0] == path:  # sentinel for absolute paths
-                path_split.insert(0, parts[0])
-                break
-            elif parts[1] == path:  # sentinel for relative paths
-                path_split.insert(0, parts[1])
-                break
-            else:
-                path = parts[0]
-                path_split.insert(0, parts[1])
-
-        return path_split
+        # split and change filename into type list
+        name = os.path.split(self.path)[1]
+        name_split = name.split('')
+        name_split[-1] = name_split[-1].split('-')[0]
+        name_split[3: 5] = [''.join(name_split[3: 5])]
+        name_split.remove('in')
+        return name_split
 
     def __folder_opening(self):
         """Opens folder for given repository and summarizes data.
