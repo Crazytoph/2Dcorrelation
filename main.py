@@ -72,5 +72,5 @@ if __name__ == '__main__':
     path = input()
     # test  stuff
     data = cdata.CData(path)
-    print(data.t_list)
-    plot.heatmap(data.t_df)
+    plot.heatmap(data.t_df, data.t_df)
+    # test
