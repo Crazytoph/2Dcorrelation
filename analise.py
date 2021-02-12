@@ -51,7 +51,7 @@ def correlation(*exp_spec, ref_spec=None):
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
-        dyn2 = exp2 - ref.spec
+        dyn2 = exp2 - ref_spec
 
     # getting number of rows and columns
     rows = dyn1.shape[0]
