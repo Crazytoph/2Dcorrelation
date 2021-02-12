@@ -17,6 +17,43 @@ import pandas as pd  # to be deleted
 import scipy.interpolate
 
 
+def centering(arr, axis=1):
+    """Centers data by subtracting the average.
+
+    Centering given data by subtracting the average of respectively each
+    column('axis'=0) or each row('axis'=1).
+
+    Parameter:
+    ---------
+    arr: numpy array or dataframe
+    axis: int
+        can be 0 for column or 1 for row
+    Return:
+    ------
+    center: like arr
+        centered data
+    """
+    # check for type
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+    # center
+    avg = arr.mean(axis=axis)
+    if axis == 0:
+        center = arr - np.reshape(avg, (1, len(avg)))
+    else:
+        center = arr - np.reshape(avg, (len(avg), 1))
+
+    # reformat if necessary
+    if df:
+        center = pd.DataFrame(arr, index=idx, columns=col)
+
+    return center
+
+
 def correlation(*exp_spec, ref_spec=None):
     """ Performs 2D correlation analysis.
 
@@ -46,12 +83,12 @@ def correlation(*exp_spec, ref_spec=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-        dyn1 = exp1 - exp1.mean(axis=1)[:, None]
-        dyn2 = exp2 - exp2.mean(axis=1)[:, None]
+        dyn1 = centering(exp1)
+        dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
-        dyn2 = exp2 - ref_spec
+        dyn2 = exp2 - ref_spec  # maybe centering afterwards?
 
     # getting number of rows and columns
     rows = dyn1.shape[0]

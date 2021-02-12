@@ -122,12 +122,14 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
     # iterate through df in args and plot the rows
     ax = fig.add_subplot(1, 2, 1)   # create subplot
     for df in args:
+        if swap:
+            df = df.T
+            print(df)
         for i in rows:
             x = list(df.loc[:, x_min:x_max].columns)    # get x-values
             y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])   # get y-values
-            if swap:    # change axis if wanted
-                x, y = y, x
-            ax.plot(x, y, linestyle='--', color=colors[k], linewidth=1, label=i
+            ax.plot(x, y, linestyle='--', marker='x', color=colors[k],
+                    linewidth=1, label=i
                     )
             k = k + 1
 
@@ -137,12 +139,13 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
 
     # if df2 exist, 2nd subplot is plotted
     if df2 is not None:
+        if swap:
+            df2 = df2.T
         for i in rows:
             ax2 = fig.add_subplot(1, 2, 2)
             x2 = list(df2.loc[:, x_min:x_max].columns)
             y2 = pd.DataFrame.to_numpy(df2.loc[i, x_min:x_max])
-            if swap:
-                x2, y2 = y2, x2
+
             ax2.plot(x2, y2, linestyle='-.', color=colors[c], linewidth=2,
                      label=i)
             ax2.set_xlabel(x_label)  # Add an x-label to the axes.
