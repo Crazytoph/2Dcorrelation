@@ -26,7 +26,7 @@ def correlation(exp_spec):
 
     Parameters:
     ----------
-    exp_spec : array
+    exp_spec : DataFrame
             Matrix of measured Spectrum
 
     Returns:
@@ -36,6 +36,8 @@ def correlation(exp_spec):
             correlation spectrum
     """
     # calculating average and dynamic spectrum as numpy array
+    index = list(exp_spec.index)
+    exp_spec = exp_spec.to_numpy()
     dyn_spec = exp_spec - exp_spec.mean(axis=1)[:, None]
 
     # getting number of rows and columns
@@ -58,20 +60,19 @@ def correlation(exp_spec):
     # Work_Note: maybe reduce calculation due to symmetry?
     for i in range(rows):
         for k in range(rows):
-            sync_spec[rows - i - 1, k] = np.sum(dyn_spec[i]
-                                                * dyn_spec[k]) \
-                                         / (cols - 1)
-            async_spec[rows - i - 1, k] = np.sum(dyn_spec[i]
-                                                 * np.sum(
-                                            np.matmul(h_n_m, dyn_spec[k]))) \
-                                        / (cols - 1)
+            sync_spec[i, k] = np.sum(dyn_spec[i] * dyn_spec[k]) / (cols - 1)
+            async_spec[i, k] = np.sum(dyn_spec[i]
+                                      * np.sum(np.matmul(h_n_m, dyn_spec[k]))
+                                      ) / (cols - 1)
     # alternative
     # for i in range(rows):
     #    for k in range(rows):
     #       sync_spec[i, k] = np.dot(dyn_spec[i, None], dyn_spec[k, None].T)/(
     #              cols - 1)
 
-    # returns Spectra;
+    # returns Spectra as DataFrame
+    sync_spec = pd.DataFrame(sync_spec, index=index, columns=index)
+    async_spec = pd.DataFrame(async_spec, index=index, columns=index)
     return sync_spec, async_spec
 
 

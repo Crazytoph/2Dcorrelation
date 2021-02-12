@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 
 
 def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
-            x_label="temperature[K]", y_label="wavelength[nm]", title="Heatmap"
+            c_min=None, c_max=None, x_label="temperature[K]",
+            y_label="wavelength[nm]", title="Heatmap"
             ):
     """Plots heatmap.
 
@@ -35,18 +36,19 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
     swap: boolean
         Default: True
         whether the axes should be swapped
+    c_min, c_max: int
+        min. and max. value for colorscale, if None, max and min value from
+        array are taken
     title, x_label, y_label: string
         description for plot
 
     Notes:
     -----
     To-Do:  defining map-style, vmax, vmin?!
-
     """
     # create running variable and figure
     k = 1
     fig = plt.figure()
-
     # get min, max values if not specified
     if x_min is None:
         x_min = list(df[0].index)[0]
@@ -60,21 +62,26 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
     # for each dataframe, get plot
     for i in df:
         arr = pd.DataFrame.to_numpy(i.loc[x_min:x_max, y_min:y_max])
+        # adapt to parameters set
         if swap:
             arr = arr.T
+        if c_min is None:
+            c_min = arr.min()
+        if c_max is None:
+            c_max = arr.max()
+        # create figure and plot
         ax = fig.add_subplot(1, len(df), k)
         im = ax.imshow(arr, aspect='auto', cmap='gist_earth',
-                       vmax=5, vmin=-8, interpolation='bicubic',
+                       vmax=c_max, vmin=c_min, interpolation='bicubic',
                        extent=[y_min, y_max, x_min, x_max], origin="lower")
         k = k + 1
         # make it nice
-
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
-        fig.colorbar(im)
+
 
     # Displaying the figure
-    plt.title(title)
+    fig.colorbar(im)
     plt.show()
     plt.close(fig)
 
@@ -117,7 +124,7 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
     for df in args:
         for i in rows:
             x = list(df.loc[:, x_min:x_max].columns)    # get x-values
-            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])   #get y-values
+            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])   # get y-values
             if swap:    # change axis if wanted
                 x, y = y, x
             ax.plot(x, y, linestyle='--', color=colors[k], linewidth=1, label=i
@@ -138,11 +145,11 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
                 x2, y2 = y2, x2
             ax2.plot(x2, y2, linestyle='-.', color=colors[c], linewidth=2,
                      label=i)
-            c = c + 1
+            ax2.set_xlabel(x_label)  # Add an x-label to the axes.
+            ax2.set_ylabel(y_label)  # Add a y-label to the axes.
+            ax2.legend()  # Add a legend.
 
-        ax2.set_xlabel(x_label)  # Add an x-label to the axes.
-        ax2.set_ylabel(y_label)  # Add a y-label to the axes.
-        ax2.legend()  # Add a legend.
+            c = c + 1
 
     # show plot and then close figure
     plt.title(title)

@@ -72,5 +72,5 @@ if __name__ == '__main__':
     path = input()
     # test  stuff
     data = cdata.CData(path)
-    plot.heatmap(data.t_df, data.t_df)
+    plot.heatmap(*ana.correlation(data.t_df), x_label="wavelength[nm]")
     # test
