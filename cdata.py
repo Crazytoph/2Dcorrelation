@@ -124,7 +124,7 @@ class CData:
         name_split = name.split(' ')
         name_split[-1] = name_split[-1].split('-')[0]
         name_split[3: 5] = [''.join(name_split[3: 5])]
-        name_split.remove('mit')
+        # name_split.remove('mit')
         return name_split
 
     def __folder_opening(self):

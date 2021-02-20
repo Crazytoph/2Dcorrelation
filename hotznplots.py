@@ -12,78 +12,91 @@ function(df):
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import ipywidgets as widgets
 
 
 def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
             c_min=None, c_max=None, x_label="temperature[K]",
-            y_label="wavelength[nm]", title="Heatmap"
-            ):
+            y_label="wavelength[nm]", title="Heatmap"):
     """Plots heatmap.
 
-    This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
-    'x_max, 'y_min', y_max')
+       This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
+       'x_max, 'y_min', y_max')
 
-    Parameters:
-    ----------
-    *df: DataFrames
-        data for plot
-    x_min, x_max: int
-        Default: None
-        min and max value of index which should be plotted
-    y_min, y_max: int
-        Default: None
-        min and max value of column which should be plotted
-    swap: boolean
-        Default: True
-        whether the axes should be swapped
-    c_min, c_max: int
-        min. and max. value for colorscale, if None, max and min value from
-        array are taken
-    title, x_label, y_label: string
-        description for plot
+       Parameters:
+       ----------
+       *df: DataFrames
+           data for plot
+       x_min, x_max: int
+           Default: None
+           min and max value of index which should be plotted
+       y_min, y_max: int
+           Default: None
+           min and max value of column which should be plotted
+       swap: boolean
+           Default: True
+           whether the axes should be swapped
+       c_min, c_max: int
+           min. and max. value for colorscale, if None, max and min value from
+           array are taken
+       title, x_label, y_label: string
+           description for plot
 
-    Notes:
-    -----
-    To-Do:  defining map-style, vmax, vmin?!
-    """
-    # create running variable and figure
-    k = 1
-    fig = plt.figure()
-    # get min, max values if not specified
+       Notes:
+       -----
+       To-Do:  defining map-style, vmax, vmin?!
+       """
+    # define all basic parameters
     if x_min is None:
-        x_min = list(df[0].index)[0]
+        x_min = df[0].index[0]
     if x_max is None:
-        x_max = list(df[0].index)[-1]
+        x_max = df[0].index[-1]
     if y_min is None:
-        y_min = list(df[0].columns)[0]
+        y_min = df[0].columns[0]
     if y_max is None:
-        y_max = list(df[0].columns)[-1]
+        y_max = df[0].columns[-1]
+    extent = [x_min, x_max, y_min, y_max]
 
-    # for each dataframe, get plot
+    # ensure  we are interactive mode
+    # this is default but if this notebook is executed out of order it may have been turned off
+    plt.ion()
+    fig = plt.figure()
+
+    # set running variable 'k' to one and plot for each heatmap in df
+    k = 1
     for i in df:
+        ax = fig.add_subplot(1, len(df), k)
+        k = k + 1
         arr = pd.DataFrame.to_numpy(i.loc[x_min:x_max, y_min:y_max])
-        # adapt to parameters set
+
+        # if axis should be swapped
         if swap:
             arr = arr.T
+            extent = [y_min, y_max, x_min, x_max]
         if c_min is None:
             c_min = arr.min()
         if c_max is None:
             c_max = arr.max()
-        # create figure and plot
-        ax = fig.add_subplot(1, len(df), k)
+
+        # here happens the 'real' plot with all settings
         im = ax.imshow(arr, aspect='auto', cmap='gist_earth',
                        vmax=c_max, vmin=c_min, interpolation='bicubic',
-                       extent=[y_min, y_max, x_min, x_max], origin="lower")
-        k = k + 1
+                       extent=extent, origin="lower")
+
         # make it nice
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
 
+    # make it nicer
+    plt.title(title)
+    plt.colorbar(im)
 
-    # Displaying the figure
-    fig.colorbar(im)
-    plt.show()
-    plt.close(fig)
+    # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
+    widgets.AppLayout(
+        center=fig.canvas,
+        footer=widgets.Button(icon='check'),
+        pane_heights=[0, 6, 1]
+    )
 
 
 def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
@@ -117,17 +130,17 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
     # create color list and color variables
     colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
     k, c = 0, 0
+    plt.ion()
     fig = plt.figure()  # create figure
-
     # iterate through df in args and plot the rows
-    ax = fig.add_subplot(1, 2, 1)   # create subplot
+    ax = fig.add_subplot(1, 2, 1)  # create subplot
     for df in args:
         if swap:
             df = df.T
             print(df)
         for i in rows:
-            x = list(df.loc[:, x_min:x_max].columns)    # get x-values
-            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])   # get y-values
+            x = list(df.loc[:, x_min:x_max].columns)  # get x-values
+            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])  # get y-values
             ax.plot(x, y, linestyle='--', marker='x', color=colors[k],
                     linewidth=1, label=i
                     )
@@ -156,5 +169,10 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
 
     # show plot and then close figure
     plt.title(title)
-    plt.show()
-    plt.close(fig)
+
+    widgets.AppLayout(
+        center=fig.canvas,
+        footer=widgets.Button(icon='check'),
+        pane_heights=[0, 6, 1]
+    )
+

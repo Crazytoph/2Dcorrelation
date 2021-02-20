@@ -77,7 +77,7 @@ def correlation(*exp_spec, ref_spec=None):
         correlation spectrum
     """
     # transform dataFrame to numpy
-    index = list(exp_spec.index)
+    index = list(exp_spec[0].index)
     exp1 = exp_spec[0].to_numpy()
     exp2 = exp_spec[-1].to_numpy()
 
