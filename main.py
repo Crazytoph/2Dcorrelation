@@ -64,6 +64,16 @@ def excel_worksheet(c_data):
     return excel_path
 
 
+def open_all(p):
+    """open all folder of path 'p'"""
+    folders = os.listdir(p)     # get folders as list
+    data_all = {}
+    for i in folders:           # get each folders 3 first words as name
+        name = i.split(' ')
+        name = ''.join(name[0:3])
+        data_all.update({name: cdata.CData(folders)})   # then create object
+
+
 # main function which is started when program run
 if __name__ == '__main__':
     # User input for files
@@ -73,5 +83,5 @@ if __name__ == '__main__':
     # test  stuff
     data = cdata.CData(path)
     print(data.t_list)
-    plot.function([40, 45, 50], data.t_df, swap=True, x_max=230)
+    plot.heatmap( data.t_df)
     # test
