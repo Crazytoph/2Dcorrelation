@@ -68,9 +68,10 @@ class CData:
         Access type (public, protected, private) needs still to be defined.
         """
         self.path = path
-        self.dna = self.__path_split()[-3]
-        self.denaturant = self.__path_split()[-2]
-        self.concentration = self.__path_split()[-1]
+        self.dna = self.__name_split()[-4]
+        self.origami = self.__name_split()[-3]
+        self.denaturant = self.__name_split()[-1]
+        self.concentration = self.__name_split()[-2]
         self.data = self.__folder_opening()
         self.t_list = list(self.data.keys())
         self.t_df = self.temp_df()
@@ -114,26 +115,17 @@ class CData:
 
         return temp_matrix
 
-    def __path_split(self):
-        """Splits path into a list of folder names."""
+    def __name_split(self):
+        """Splits name into list and formats it to get key information."""
 
-        # split path into single folder names as list
-        path_split = []
-        path = self.path
-
-        while 1:
-            parts = os.path.split(path)
-            if parts[0] == path:  # sentinel for absolute paths
-                path_split.insert(0, parts[0])
-                break
-            elif parts[1] == path:  # sentinel for relative paths
-                path_split.insert(0, parts[1])
-                break
-            else:
-                path = parts[0]
-                path_split.insert(0, parts[1])
-
-        return path_split
+        # split and change filename into type list
+        name = os.listdir(self.path)[-1]
+        name = os.path.split(name)[1]
+        name_split = name.split(' ')
+        name_split[-1] = name_split[-1].split('-')[0]
+        name_split[3: 5] = [''.join(name_split[3: 5])]
+        name_split.remove('mit')
+        return name_split
 
     def __folder_opening(self):
         """Opens folder for given repository and summarizes data.
@@ -152,7 +144,14 @@ class CData:
 
         # loop for each file
         for i in range(len(files)):
-            # getting temperature from filenames
+            # getting repository
+            repository = os.path.join(self.path, files[i])
+
+            # checking whether it is really a file
+            if os.path.isfile(repository) is False:
+                continue
+
+            # getting temperature from filenames#
             temp = files[i]
             if temp[-7] == '.':
                 temp = temp[-9:-4]
@@ -168,8 +167,7 @@ class CData:
             else:
                 temp = int(down)
 
-            # adding values to data
-            repository = os.path.join(self.path, files[i])
+            # add file to dictionary
             data[temp] = self.__file_opening(repository)
 
         return data

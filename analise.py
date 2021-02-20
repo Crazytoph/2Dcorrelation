@@ -17,7 +17,44 @@ import pandas as pd  # to be deleted
 import scipy.interpolate
 
 
-def correlation(exp_spec):
+def centering(arr, axis=1):
+    """Centers data by subtracting the average.
+
+    Centering given data by subtracting the average of respectively each
+    column('axis'=0) or each row('axis'=1).
+
+    Parameter:
+    ---------
+    arr: numpy array or dataframe
+    axis: int
+        can be 0 for column or 1 for row
+    Return:
+    ------
+    center: like arr
+        centered data
+    """
+    # check for type
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+    # center
+    avg = arr.mean(axis=axis)
+    if axis == 0:
+        center = arr - np.reshape(avg, (1, len(avg)))
+    else:
+        center = arr - np.reshape(avg, (len(avg), 1))
+
+    # reformat if necessary
+    if df:
+        center = pd.DataFrame(arr, index=idx, columns=col)
+
+    return center
+
+
+def correlation(*exp_spec, ref_spec=None):
     """ Performs 2D correlation analysis.
 
     Calculates the Synchronous and Asynchronous 2D correlation of a given
@@ -26,21 +63,36 @@ def correlation(exp_spec):
 
     Parameters:
     ----------
-    exp_spec : array
-            Matrix of measured Spectrum
+    exp_spec: DataFrames
+        Matrix of measured Spectrum, one or two. If one, homogenous
+        DataFrame is calculated, if two heterogeneous.
+    ref_spec: DataFrame
+        Reference Spectrum, if None Average is taken to calculate Dynamic
+        Spectrum.
 
     Returns:
     -------
     sync_spec, async_spec: array_like
-            The synchronous respectively asynchronous
-            correlation spectrum
+        The synchronous respectively asynchronous
+        correlation spectrum
     """
-    # calculating average and dynamic spectrum as numpy array
-    dyn_spec = exp_spec - exp_spec.mean(axis=1)[:, None]
+    # transform dataFrame to numpy
+    index = list(exp_spec.index)
+    exp1 = exp_spec[0].to_numpy()
+    exp2 = exp_spec[-1].to_numpy()
+
+    # create dynamic spectrum
+    if ref_spec is None:
+        dyn1 = centering(exp1)
+        dyn2 = centering(exp2)
+    else:
+        ref_spec = ref_spec.to_numpy()
+        dyn1 = exp1 - ref_spec
+        dyn2 = exp2 - ref_spec  # maybe centering afterwards?
 
     # getting number of rows and columns
-    rows = dyn_spec.shape[0]
-    cols = dyn_spec.shape[1]
+    rows = dyn1.shape[0]
+    cols = dyn1.shape[1]
 
     # creating 2d arrays for sync and async spectra
     size = (rows, rows)
@@ -55,23 +107,24 @@ def correlation(exp_spec):
     h_n_m = h_n_m[..., :cols]
 
     # calculating sync and async values for each row and column
-    # Work_Note: maybe reduce calculation due to symmetry?
     for i in range(rows):
-        for k in range(rows):
-            sync_spec[rows - i - 1, k] = np.sum(dyn_spec[i]
-                                                * dyn_spec[k]) \
-                                         / (cols - 1)
-            async_spec[rows - i - 1, k] = np.sum(dyn_spec[i]
-                                                 * np.sum(
-                                            np.matmul(h_n_m, dyn_spec[k]))) \
-                                        / (cols - 1)
+        for k in range(rows - 1):
+            sync_spec[i, k] = np.sum(dyn1[i] * dyn2[k]) / (cols - 1)
+            async_spec[i, k] = np.sum(dyn1[i]
+                                      * np.sum(np.matmul(h_n_m, dyn2[k]))
+                                      ) / (cols - 1)
     # alternative
     # for i in range(rows):
     #    for k in range(rows):
     #       sync_spec[i, k] = np.dot(dyn_spec[i, None], dyn_spec[k, None].T)/(
     #              cols - 1)
 
-    # returns Spectra;
+    # complete other half
+    sync_spec = sync_spec + sync_spec.T - np.diag(sync_spec.diagonal())
+    async_spec = async_spec + async_spec.T - np.diag(async_spec.diagonal())
+    # return spectra as DataFrame
+    sync_spec = pd.DataFrame(sync_spec, index=index, columns=index)
+    async_spec = pd.DataFrame(async_spec, index=index, columns=index)
     return sync_spec, async_spec
 
 
