@@ -17,15 +17,15 @@ import hotznplots as plot
 import analise as ana
 
 
-def excel_worksheet(circ_data):
+def excel_worksheet(c_data):
     """ Transforms data to Excel.
 
-    Creates for each array in 'circ_data.data' and 'circ_data.temp_value' an
+    Creates for each array in 'CData.data' and 'CData.temp_value' an
     excel worksheet in an excel document.
 
     Parameter:
     ---------
-        circ_data: CircData object from cdata
+        c_data: CData object from cdata
             measurement data
 
     Returns:
@@ -35,7 +35,7 @@ def excel_worksheet(circ_data):
     """
     # getting name through input and creating path for ExcelWriter
     name = input('Insert name for Excel document including \".xlsx\"')
-    excel_path = os.path.join(*circ_data.path, name)
+    excel_path = os.path.join(*c_data.path, name)
     # specify column names and units
     # header = [["Wavelength", "CD", "HT", "Absorption"],
     #           ["nm", "mdeg", "V", ""]
@@ -44,13 +44,13 @@ def excel_worksheet(circ_data):
 
     # creating excel document and let it open while adding sheets
     with pd.ExcelWriter(excel_path) as writer:
-        for key in circ_data.data:
-            df = pd.DataFrame(circ_data.data[key], columns=header)
+        for key in c_data.data:
+            df = pd.DataFrame(c_data.data[key], columns=header)
             df = df.set_index("Wavelength")
             df.to_excel(writer, sheet_name=str(key), index=True)
 
         # add Wavelengths_Temperature Matrix as extra sheet
-        df = circ_data.temp_val()
+        df = c_data.temp_val()
         df.to_excel(writer, sheet_name="temp_matrix")
 
         # adding correlation matrices as sheets
@@ -64,6 +64,16 @@ def excel_worksheet(circ_data):
     return excel_path
 
 
+def open_all(p):
+    """open all folder of path 'p'"""
+    folders = os.listdir(p)     # get folders as list
+    data_all = {}
+    for i in folders:           # get each folders 3 first words as name
+        name = i.split(' ')
+        name = ''.join(name[0:3])
+        data_all.update({name: cdata.CData(folders)})   # then create object
+
+
 # main function which is started when program run
 if __name__ == '__main__':
     # User input for files
@@ -72,7 +82,6 @@ if __name__ == '__main__':
     path = input()
     # test  stuff
     data = cdata.CData(path)
-
-
-    plot.heatmap(data.t_df, data.t_df)
+    print(data.t_list)
+    plot.heatmap( data.t_df)
     # test
