@@ -55,7 +55,7 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
         y_min = df[0].columns[0]
     if y_max is None:
         y_max = df[0].columns[-1]
-    extent = [x_min, x_max, y_min, y_max]
+    extent = [y_min, y_max, x_min, x_max]
 
     # ensure  we are interactive mode
     # this is default but if this notebook is executed out of order it may have been turned off
@@ -72,7 +72,8 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
         # if axis should be swapped
         if swap:
             arr = arr.T
-            extent = [y_min, y_max, x_min, x_max]
+            extent = [x_min, x_max, y_min, y_max]
+            x_label, y_label = y_label, x_label
         if c_min is None:
             c_min = arr.min()
         if c_max is None:
@@ -164,11 +165,7 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
             ax2.set_xlabel(x_label)  # Add an x-label to the axes.
             ax2.set_ylabel(y_label)  # Add a y-label to the axes.
             ax2.legend()  # Add a legend.
-
             c = c + 1
-
-    # show plot and then close figure
-    plt.title(title)
 
     widgets.AppLayout(
         center=fig.canvas,
