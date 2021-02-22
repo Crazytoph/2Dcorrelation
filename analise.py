@@ -4,20 +4,26 @@ Collection of useful functions to perform operations on Data.
 
 Functions:
 ---------
-centering(arr, axis):
-    centers data around axis
-pareto_scaling(arr,axis):
-    scales data around axis
-correlation(*exp, ref):
-    performs 2D correlation analysis on 'circ_data'
-maximum(arr):
-    gets the maximum value of 'arr'
+    centering(arr, axis):
+        centers data around axis
+    pareto_scaling(arr,axis):
+        scales data around axis
+    correlation(*exp, ref):
+        performs 2D correlation analysis on 'circ_data'
+    max_wave(df, wave_min, wave_max):
+        gives max. value and its wavelength for each column.
+    min_wave(df, wave_min, wave_max):
+        gives min. value and its wavelength for each column.
+    interpolate(df, i):
+        interpolates a function throuhg column points for index 'i'.
+    derivative(df):
+        gives the interpolated derivative of a DataFrame.
 
 """
 
 # imports
 import numpy as np
-import pandas as pd  # to be deleted
+import pandas as pd
 import scipy.interpolate
 import scipy.misc
 
@@ -193,13 +199,78 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
     return sync_spec, async_spec
 
 
-def maximum(arr):
-    """Returns the maximum value of array 'arr'."""
-    return np.amax(arr)
+def max_wave(df, wave_min=None, wave_max=None):
+    """Returns the maximum value of its wavelength for each column.
+
+    Parameter:
+    ---------
+    df : DataFrame
+        Typical Wavelength Temperature DataFrame
+
+    wave_min, wave_max: int
+        max. and min. wavelength in between which the maximum should be found. Must be index values from the DataFrame.
+
+    Return:
+    ------
+    df2 : DataFrame
+        DataFrame with Temperatures as Index and under 'Value' column their max. CD value and under 'Wavelength' the
+        corresponding wavelength.
+    """
+    # adapt to min. and max. wavelength
+    if wave_min is not None:
+        df = df.loc[wave_min:]
+    if wave_max is not None:
+        df = df.loc[:wave_max]
+
+    # get max.value and max. wavelength
+    max_val = pd.DataFrame(df.max(), columns=["Value"])
+    max_wav = pd.DataFrame(df.idxmax(), columns=["Wavelength"])
+    df2 = pd.DataFrame.join(max_val, max_wav)
+
+    return df2
+
+
+def min_wave(df, wave_min=None, wave_max=None):
+    """Returns the minimum value and its wavelength for each column.
+
+    Parameter:
+    ---------
+    df : DataFrame
+        Typical Wavelength Temperature DataFrame
+
+    wave_min, wave_max: int
+        max. and min. wavelength in between which the minimum should be found. Must be index values from the DataFrame.
+
+    Return:
+    ------
+    df2 : DataFrame
+        DataFrame with Temperatures as Index and under 'Value' their smallest value and under 'Wavelength' the
+        corresponding wavelength.
+    """
+    # adapt to min. and max. wavelength
+    if wave_min is not None:
+        df = df.loc[wave_min:]
+    if wave_max is not None:
+        df = df.loc[:wave_max]
+
+    # get max.value and max. wavelength
+    min_val = pd.DataFrame(df.min(), columns=["Value"])
+    min_wav = pd.DataFrame(df.idxmin(), columns=["Wavelength"])
+    df2 = pd.DataFrame.join(min_val, min_wav)
+
+    return df2
 
 
 def interpolate(df, i=0):
-    """Interpolates a function for a given DataFrame 'df for the row 'i'. """
+    """Interpolates a function for a given DataFrame 'df' for the row 'i'.
+
+        Kind is 'cubic', out of data range points are extrapolated.
+
+    Returns:
+    -------
+        f : function
+            function which can be called to get interpolated value of value x.
+    """
     x = list(df.columns)
     y = list(df.iloc[i, :])
     f = scipy.interpolate.interp1d(x, y, kind='cubic', fill_value="extrapolate")
@@ -207,7 +278,16 @@ def interpolate(df, i=0):
 
 
 def derivative(df):
-    """Returns the derivated values of a DataFrame 'df'."""
+    """Tries to find the interpolated derivative of a DataFrame values a 'df'
+
+    First a function is interpolated with 100 DataPoints between min. and max. column value
+    which is then differentiated.
+
+    Returns:
+    -------
+        deriv: DataFrame
+            DataFrame with the 'Wavelength' as Index and the 100 points as columns.
+    """
     # create x values
     x = np.linspace(df.columns[0], df.columns[-1], 100)
     deriv = pd.DataFrame(x, columns=['Wavelength'])
@@ -221,4 +301,5 @@ def derivative(df):
     # reformat dataframe to original
     deriv.set_index('Wavelength')
     deriv = deriv.T
+
     return deriv

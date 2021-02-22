@@ -127,8 +127,10 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
     input change to array?
     """
     # create color list and color variables
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
-    k, c  = 0, 1
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+              'tab:olive', 'tab:cyan']
+
+    k, c = 0, 1
     plt.ion()
     fig = plt.figure()  # create figure
     # iterate through df in args and plot the rows
@@ -147,6 +149,7 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
             k = k + 1
             ax.legend(rows)
         k = 0
+        
         # plots line into graph
         ax.plot([20, 90], [0, 0], color='k', linestyle=':', linewidth=1)
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
@@ -156,7 +159,8 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
         plt.title(title)
         
 def functionT(rows, *df, x_min = None, x_max = None, y_min = None, y_max = None, swap = True,
-             x_label="Wavelength[nm]", y_label="CD values[mdeg]", y_scaling = None, baseline = None, line1 = None, line2 = None, line3 = None, line4 = None, line5 = None
+             x_label="Wavelength[nm]", y_label="CD values[mdeg]", y_scaling = None, 
+             baseline = None, line1 = None, line2 = None, line3 = None, line4 = None, line5 = None
              ):
     
     # create color list and color variables
