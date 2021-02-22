@@ -130,7 +130,7 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
     colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
               'tab:olive', 'tab:cyan']
 
-    k, c  = 0, 1
+    k, c = 0, 1
     plt.ion()
     fig = plt.figure()  # create figure
     # iterate through df in args and plot the rows
