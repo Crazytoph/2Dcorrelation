@@ -127,7 +127,9 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
     input change to array?
     """
     # create color list and color variables
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+              'tab:olive', 'tab:cyan']
+
     k, c  = 0, 1
     plt.ion()
     fig = plt.figure()  # create figure
@@ -140,7 +142,7 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-            ax.plot(x, y, linestyle='--', marker='x', color=colors[k],
+            ax.plot(x, y, linestyle='--', marker='x', color=colors[k % 10],
                     linewidth=1, label=i
                     )
             k = k + 1
