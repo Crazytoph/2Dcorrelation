@@ -100,9 +100,9 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
     )
 
 
-def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
+def function(rows, *df, x_min=None, x_max=None, swap=False,
              x_label="Temperature[K]", y_label="CD values[mdeg]",
-             title="Nice Plot"):
+             ):
     """Plots simple graph of DataFrames
 
     This function plots several CD values for each selected Temperature Column
@@ -110,17 +110,15 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
 
     Parameters:
     ----------
-    *args: Tuple of DataFrames
+    *df: Tuple of DataFrames
         data for plot
-    df2: DataFrame
-        data for 2nd subplot
     rows: list
         rows of DataFrames which should be plotted
     x_min, x_max: int
         min and max columns index which should be plotted
     swap: boolean
         whether to change axes
-    title, x_label, y_label: string
+    x_label, y_label: string
         description for plot
 
     Notes:
@@ -130,42 +128,29 @@ def function(rows, *args, df2=None, x_min=None, x_max=None, swap=False,
     """
     # create color list and color variables
     colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple']
-    k, c = 0, 0
+    k, c  = 0, 1
     plt.ion()
     fig = plt.figure()  # create figure
     # iterate through df in args and plot the rows
-    ax = fig.add_subplot(1, 2, 1)  # create subplot
-    for df in args:
+    
+    for i in df:
+        ax = fig.add_subplot(1, 2, c)  # create subplot
         if swap:
-            df = df.T
-            print(df)
-        for i in rows:
-            x = list(df.loc[:, x_min:x_max].columns)  # get x-values
-            y = pd.DataFrame.to_numpy(df.loc[i, x_min:x_max])  # get y-values
+            i = i.T
+        for r in rows:
+            x = list(i.loc[:, x_min:x_max].columns)  # get x-values
+            y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
             ax.plot(x, y, linestyle='--', marker='x', color=colors[k],
                     linewidth=1, label=i
                     )
             k = k + 1
+            ax.legend(rows)
 
-    ax.set_xlabel(x_label)  # Add an x-label to the axes.
-    ax.set_ylabel(y_label)  # Add a y-label to the axes.
-    ax.legend()  # Add a legend.
-
-    # if df2 exist, 2nd subplot is plotted
-    if df2 is not None:
-        if swap:
-            df2 = df2.T
-        for i in rows:
-            ax2 = fig.add_subplot(1, 2, 2)
-            x2 = list(df2.loc[:, x_min:x_max].columns)
-            y2 = pd.DataFrame.to_numpy(df2.loc[i, x_min:x_max])
-
-            ax2.plot(x2, y2, linestyle='-.', color=colors[c], linewidth=2,
-                     label=i)
-            ax2.set_xlabel(x_label)  # Add an x-label to the axes.
-            ax2.set_ylabel(y_label)  # Add a y-label to the axes.
-            ax2.legend()  # Add a legend.
-            c = c + 1
+        ax.set_xlabel(x_label)  # Add an x-label to the axes.
+        ax.set_ylabel(y_label)  # Add a y-label to the axes.
+        title = "fig." + str(c)
+        c = c + 1
+        plt.title(title)
 
     widgets.AppLayout(
         center=fig.canvas,
