@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
-
+from mpl_toolkits.mplot3d import Axes3D
 
 def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
             c_min=None, c_max=None, x_label="temperature[K]",
@@ -311,6 +311,19 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
 
     # Title option
     fig.suptitle('This is a somewhat long figure title', fontsize=16)
+
+    # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
+    widgets.AppLayout(
+        center=fig.canvas,
+        footer=widgets.Button(icon='check'),
+        pane_heights=[0, 6, 1]
+    )
+
+
+def function3d(df):
+    """Plots 3d function. """
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
