@@ -18,6 +18,11 @@ Functions:
         interpolates a function throuhg column points for index 'i'.
     derivative(df):
         gives the interpolated derivative of a DataFrame.
+<<<<<<< HEAD
+=======
+    sigmoid(x, a, b):
+        a sigmoid function
+>>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 
 """
 
@@ -66,6 +71,34 @@ def centering(arr, axis=1):
     return center
 
 
+<<<<<<< HEAD
+=======
+def normalize(arr, axis=1):
+    """Normalizes data between 0 and 1."""
+    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+
+    # normalize data
+    min_col = np.array(arr.min(axis=1))
+    max_col = np.array(arr.max(axis=1))
+    diff = max_col - min_col
+    diff = np.matmul(diff[:, None], np.ones((1, 16)))
+    min_col = np.matmul(min_col[:, None], np.ones((1, 16)))
+    norm_arr = (arr + abs(min_col)) / diff
+
+    # reformat if necessary
+    if df:
+        norm_arr = pd.DataFrame(norm_arr, index=idx, columns=col)
+
+    return norm_arr
+
+
+>>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -302,4 +335,66 @@ def derivative(df):
     deriv.set_index('Wavelength')
     deriv = deriv.T
 
+<<<<<<< HEAD
     return deriv
+=======
+    return deriv
+
+
+def sigmoid(x, a, b):
+    """A sigmoid function.
+
+    ..math: sig(t) = \frac{1}{1 + \exp{-a*(x-b)}
+
+    Returns:
+    -------
+        function value on 'x'
+    """
+    return 1.0 / (1.0 + np.exp(-a * (x - b)))
+
+
+def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
+    """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
+
+    Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
+
+    Parameters:
+    ----------
+        df: DataFrame
+            Data
+        wave: int
+            wavelength to be fitted
+        a_range, b_range:  list with two integers
+            min. and max. guessing value for parameters for optmial fit.
+
+    Return:
+    ------
+        fit_data: DataFrames
+            DataFrame with Temperatures as Columns and then index-wise: the Wavelength 'wave' and its orignal data,
+            on 'fit' the fitted data and on 'up' and 'down' the fit with parameters shifted up/down about the standard
+            deviation from the fit.
+    """
+    # get x and y points
+    x_data = list(df.columns)
+    y_data = df.loc[wave, :]  # get y points
+    y_data.index = y_data.index.astype(float)
+
+    # prepare DataFrames
+    x = np.arange(df.columns[0], df.columns[-1]+1)
+    fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
+    fit_data = pd.concat([fit_data, y_data], axis=1)
+    fit_data = fit_data.set_index("wavelength")
+
+    # fit best parameters and their errors
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
+                           bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
+    print(popt, pcov)
+    # get fit curve
+    fit_data["fit"] = sigmoid(x, *popt)
+    # get up and down error fit
+    std = np.sqrt(np.diag(pcov))
+    fit_data["up"] = sigmoid(x, *(popt + std))
+    fit_data["down"] = sigmoid(x, *(popt - std))
+
+    return fit_data.T
+>>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
