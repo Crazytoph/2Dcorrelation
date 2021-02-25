@@ -101,7 +101,7 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, swap=False,
-             x_label="Temperature[K]", y_label="CD values[mdeg]",
+             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling = None, line1 = None, line2 = None, line3 = None, line4 = None, line5 = None
              ):
     """Plots simple graph of DataFrames
 
@@ -142,13 +142,27 @@ def function(rows, *df, x_min=None, x_max=None, swap=False,
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
             ax.plot(x, y, linestyle='-', marker=' ', color=colors[k],
-                    linewidth=1, label=i
+                    linewidth=1.5, label=i
                     )
             k = k + 1
             ax.legend(rows)
         k = 0
+        
+        if y_scaling is not None:         
+            ax.set_ylim(y_scaling) # Y-achis scaling
+        
+        if line1 is not None:
+            ax.plot( line1, [4,-8], color='k', linestyle=':', linewidth=1) # plots line into graph
+        if line2 is not None:
+            ax.plot(line2, [4,-8], color='k', linestyle=':', linewidth=1)
+        if line3 is not None:
+            ax.plot(line3, [4,-8], color='k', linestyle=':', linewidth=1)
+        if line4 is not None:
+            ax.plot(line4, [4,-8], color='k', linestyle=':', linewidth=1)
+        if line5 is not None:
+            ax.plot(line5, [4,-8], color='k', linestyle=':', linewidth=1)
         # plots line into graph
-        ax.plot([20, 90], [0, 0], color='k', linestyle=':', linewidth=1)
+        ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
         title = "fig." + str(c)
