@@ -123,7 +123,7 @@ class CData:
         name = os.path.split(name)[1]
         name_split = name.split(' ')
         name_split[-1] = name_split[-1].split('-')[0]
-        name_split[-3: -1] = [''.join(name_split[-3: -1])]
+        name_split[3: 5] = [''.join(name_split[3: 5])]
         # name_split.remove('mit')
         return name_split
 
