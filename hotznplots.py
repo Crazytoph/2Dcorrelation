@@ -180,8 +180,13 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
+<<<<<<< HEAD
             ax.plot(x, y, linestyle='-', marker=' ', color=colors[k],
                     linewidth=1.5, label=i
+=======
+            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
+                    linewidth=1
+>>>>>>> parent of 7bf2d78 (Merge branch 'coop' into Analise_Wachstums_Schub)
                     )
             k = k + 1
 
