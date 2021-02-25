@@ -122,7 +122,7 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None
+             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None, baseline = None
              ):
     """Plots simple graph of DataFrames
 
@@ -181,7 +181,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
             ax.plot(x, y, linestyle='-', marker=' ', color=colors[k],
-                    linewidth=1, label=i
+                    linewidth=1.5, label=i
                     )
             k = k + 1
 
@@ -193,7 +193,8 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
             ax.set_ylim(y_scaling)  # Y-axis scaling
 
         # plots line into graph
-        ax.plot([20, 90], [0, 0], color='k', linestyle=':', linewidth=1)
+        if baseline is not None:
+            ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
         title = "fig." + str(c)
