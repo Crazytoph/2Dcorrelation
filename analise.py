@@ -18,6 +18,10 @@ Functions:
         interpolates a function throuhg column points for index 'i'.
     derivative(df):
         gives the interpolated derivative of a DataFrame.
+    sigmoid(x, a, b):
+        a sigmoid function
+    sigmoid_fit(df, wave):
+        fit a sigmoid function on the data of 'df'
 
 """
 
@@ -26,6 +30,7 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate
 import scipy.misc
+from scipy.optimize import curve_fit
 
 
 def centering(arr, axis=1):
@@ -64,6 +69,42 @@ def centering(arr, axis=1):
         center = pd.DataFrame(center, index=idx, columns=col)
 
     return center
+
+
+def normalize(arr, axis=1):
+    """Normalizes data between 0 and 1."""
+    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+
+    # get array shape
+    shape = arr.shape
+
+    # normalize data
+    if axis == 1:
+        min_col = np.array(arr.min(axis=axis))
+        max_col = np.array(arr.max(axis=axis))
+        diff = max_col - min_col
+        diff = np.matmul(diff[:, None], np.ones((1, shape[1])))
+        min_col = np.matmul(min_col[:, None], np.ones((1, shape[1])))
+        norm_arr = (arr + abs(min_col)) / diff
+    if axis == 0:
+        min_idx = np.array(arr.min(axis=axis))
+        max_idx = np.array(arr.min(axis=axis))
+        diff = max_idx - min_idx
+        diff = np.matmul(diff[None, :], np.ones((shape[0], 1)))
+        min_idx = np.matmul(min_idx[None, :], np.ones((shape[0], 1)))
+        norm_arr = (arr + abs(min_col)) / diff
+
+    # reformat if necessary
+    if df:
+        norm_arr = pd.DataFrame(norm_arr, index=idx, columns=col)
+
+    return norm_arr
 
 
 def pareto_scaling(arr, axis=1):
@@ -149,8 +190,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-            dyn1 = centering(exp1)
-            dyn2 = centering(exp2)
+        dyn1 = centering(exp1)
+        dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
@@ -303,3 +344,75 @@ def derivative(df):
     deriv = deriv.T
 
     return deriv
+
+
+def sigmoid(x, a, b):
+    """A sigmoid function.
+
+    ..math: sig(t) = \frac{1}{1 + \exp{-a*(x-b)}
+
+    Returns:
+    -------
+        function value on 'x'
+    """
+    return 1.0 / (1.0 + np.exp(-a * (x - b)))
+
+
+def sigmoid_error(x, a, b, delta_a, delta_b):
+    """Calculates the error of sigmoid.
+
+    Returns:
+    -------
+        error of f on 'x'
+    """
+    f = np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b)))**(-2))
+    err = np.sqrt((a * f * delta_b)**2 + ((x-b) * f * delta_a)**2)
+    return err
+
+
+def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
+    """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
+
+    Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
+
+    Parameters:
+    ----------
+        df: DataFrame
+            Data
+        wave: int
+            wavelength to be fitted
+        a_range, b_range:  list with two integers
+            min. and max. guessing value for parameters for optmial fit.
+
+    Return:
+    ------
+        fit_data: DataFrames
+            DataFrame with Temperatures as Columns and then index-wise: the Wavelength 'wave' and its orignal data,
+            on 'fit' the fitted data and on 'up' and 'down' the fit with parameters shifted up/down about the standard
+            deviation from the fit.
+        popt[1]: float
+            optimized parameter b, a.k.a. the melting temperature
+    """
+    # get x and y points
+    x_data = list(df.columns)
+    y_data = df.loc[wave, :]  # get y points
+    y_data.index = y_data.index.astype(float)
+
+    # prepare DataFrames
+    x = np.arange(df.columns[0], df.columns[-1]+1)
+    fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
+    fit_data = pd.concat([fit_data, y_data], axis=1)
+    fit_data = fit_data.set_index("wavelength")
+
+    # fit best parameters and their errors
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
+                           bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
+
+    # get fit curve
+    fit_data["fit"] = sigmoid(x, *popt)
+    # get up and down error fit
+    std_param = np.sqrt(np.diag(pcov))
+    fit_data["up"] = sigmoid(x, *(popt + std_param))
+    fit_data["down"] = sigmoid(x, *(popt - std_param))
+
+    return fit_data.T, popt[1]
