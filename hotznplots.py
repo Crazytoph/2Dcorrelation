@@ -22,11 +22,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
-<<<<<<< HEAD
-
-=======
 from mpl_toolkits.mplot3d import Axes3D
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 
 def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
             c_min=None, c_max=None, x_label="temperature[K]",
@@ -126,11 +122,7 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-<<<<<<< HEAD
-             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None, baseline = None
-=======
              x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
              ):
     """Plots simple graph of DataFrames
 
@@ -188,18 +180,8 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-<<<<<<< HEAD
-<<<<<<< HEAD
-            ax.plot(x, y, linestyle='-', marker=' ', color=colors[k],
-                    linewidth=1.5, label=i
-=======
-            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
-                    linewidth=1
->>>>>>> parent of 7bf2d78 (Merge branch 'coop' into Analise_Wachstums_Schub)
-=======
             ax.plot(x, y, linestyle='-', marker=' ', color=colors[k],
                     linewidth=1, label=i
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
                     )
             k = k + 1
 
@@ -211,12 +193,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
             ax.set_ylim(y_scaling)  # Y-axis scaling
 
         # plots line into graph
-<<<<<<< HEAD
-        if baseline is not None:
-            ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
-=======
         ax.plot([20, 90], [0, 0], color='k', linestyle=':', linewidth=1)
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
         title = "fig." + str(c)
@@ -334,8 +311,6 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
 
     # Title option
     fig.suptitle('This is a somewhat long figure title', fontsize=16)
-<<<<<<< HEAD
-=======
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
@@ -349,7 +324,6 @@ def function3d(df):
     """Plots 3d function. """
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(

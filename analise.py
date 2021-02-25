@@ -18,11 +18,8 @@ Functions:
         interpolates a function throuhg column points for index 'i'.
     derivative(df):
         gives the interpolated derivative of a DataFrame.
-<<<<<<< HEAD
-=======
     sigmoid(x, a, b):
         a sigmoid function
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 
 """
 
@@ -31,6 +28,7 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate
 import scipy.misc
+from scipy.optimize import curve_fit
 
 
 def centering(arr, axis=1):
@@ -71,8 +69,6 @@ def centering(arr, axis=1):
     return center
 
 
-<<<<<<< HEAD
-=======
 def normalize(arr, axis=1):
     """Normalizes data between 0 and 1."""
     # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
@@ -98,7 +94,6 @@ def normalize(arr, axis=1):
     return norm_arr
 
 
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -182,8 +177,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-            dyn1 = centering(exp1)
-            dyn2 = centering(exp2)
+        dyn1 = centering(exp1)
+        dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
@@ -335,9 +330,6 @@ def derivative(df):
     deriv.set_index('Wavelength')
     deriv = deriv.T
 
-<<<<<<< HEAD
-    return deriv
-=======
     return deriv
 
 
@@ -397,4 +389,3 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     fit_data["down"] = sigmoid(x, *(popt - std))
 
     return fit_data.T
->>>>>>> parent of 5f8ef0a (Now subplots data in functionT has to be plotted in lists, but data frame can be neglected)
