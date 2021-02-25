@@ -196,8 +196,9 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
-                    linewidth=1
+
+            ax.plot(x, y, linestyle='-', marker='', color=colors[k % 10],
+                    linewidth=1.5
                     )
             k = k + 1
 
