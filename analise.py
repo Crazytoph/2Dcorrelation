@@ -21,6 +21,7 @@ Functions:
     sigmoid(x, a, b):
         a sigmoid function
 
+
 """
 
 # imports
@@ -28,7 +29,6 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate
 import scipy.misc
-from scipy.optimize import curve_fit
 
 
 def centering(arr, axis=1):
@@ -93,7 +93,7 @@ def normalize(arr, axis=1):
 
     return norm_arr
 
-
+  
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -177,8 +177,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-        dyn1 = centering(exp1)
-        dyn2 = centering(exp2)
+            dyn1 = centering(exp1)
+            dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
@@ -389,3 +389,4 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     fit_data["down"] = sigmoid(x, *(popt - std))
 
     return fit_data.T
+
