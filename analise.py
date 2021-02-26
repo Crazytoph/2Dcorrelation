@@ -20,8 +20,8 @@ Functions:
         gives the interpolated derivative of a DataFrame.
     sigmoid(x, a, b):
         a sigmoid function
-
-
+    sigmoid_fit(df, wave):
+        fit a sigmoid function on the data of 'df'
 """
 
 # imports
@@ -80,13 +80,23 @@ def normalize(arr, axis=1):
         idx = arr.index
         arr = arr.to_numpy()
 
-    # normalize data
-    min_col = np.array(arr.min(axis=1))
-    max_col = np.array(arr.max(axis=1))
-    diff = max_col - min_col
-    diff = np.matmul(diff[:, None], np.ones((1, 16)))
-    min_col = np.matmul(min_col[:, None], np.ones((1, 16)))
-    norm_arr = (arr + abs(min_col)) / diff
+    # get array shape
+    shape = arr.shape
+
+    if axis == 1:
+        min_col = np.array(arr.min(axis=axis))
+        max_col = np.array(arr.max(axis=axis))
+        diff = max_col - min_col
+        diff = np.matmul(diff[:, None], np.ones((1, shape[1])))
+        min_col = np.matmul(min_col[:, None], np.ones((1, shape[1])))
+        norm_arr = (arr + abs(min_col)) / diff
+    if axis == 0:
+        min_idx = np.array(arr.min(axis=axis))
+        max_idx = np.array(arr.min(axis=axis))
+        diff = max_idx - min_idx
+        diff = np.matmul(diff[None, :], np.ones((shape[0], 1)))
+        min_idx = np.matmul(min_idx[None, :], np.ones((shape[0], 1)))
+        norm_arr = (arr + abs(min_col)) / diff
 
     # reformat if necessary
     if df:
@@ -94,7 +104,7 @@ def normalize(arr, axis=1):
 
     return norm_arr
 
-  
+
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -178,8 +188,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-            dyn1 = centering(exp1)
-            dyn2 = centering(exp2)
+        dyn1 = centering(exp1)
+        dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
@@ -346,6 +356,17 @@ def sigmoid(x, a, b):
     return 1.0 / (1.0 + np.exp(-a * (x - b)))
 
 
+def sigmoid_error(x, a, b, delta_a, delta_b):
+    """Calculates the error of sigmoid.
+    Returns:
+    -------
+        error of f on 'x'
+    """
+    f = np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b)))**(-2))
+    err = np.sqrt((a * f * delta_b)**2 + ((x-b) * f * delta_a)**2)
+    return err
+
+
 def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
 
@@ -373,7 +394,7 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     y_data.index = y_data.index.astype(float)
 
     # prepare DataFrames
-    x = np.arange(df.columns[0], df.columns[-1]+1)
+    x = np.arange(df.columns[0], df.columns[-1] + 1)
     fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
     fit_data = pd.concat([fit_data, y_data], axis=1)
     fit_data = fit_data.set_index("wavelength")
@@ -391,4 +412,3 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     fit_data["down"] = sigmoid(x, *(popt - std))
 
     return fit_data.T
-
