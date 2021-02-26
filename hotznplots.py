@@ -222,6 +222,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         # make it nice
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
+
         ax.legend(rows)  # add legend
 
         # add subtitle
