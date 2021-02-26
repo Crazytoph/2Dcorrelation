@@ -21,6 +21,7 @@ Functions:
     sigmoid(x, a, b):
         a sigmoid function
 
+
 """
 
 # imports
@@ -93,7 +94,7 @@ def normalize(arr, axis=1):
 
     return norm_arr
 
-
+  
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -177,8 +178,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
 
     # create dynamic spectrum
     if ref_spec is None:
-        dyn1 = centering(exp1)
-        dyn2 = centering(exp2)
+            dyn1 = centering(exp1)
+            dyn2 = centering(exp2)
     else:
         ref_spec = ref_spec.to_numpy()
         dyn1 = exp1 - ref_spec
@@ -380,12 +381,14 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     # fit best parameters and their errors
     popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
                            bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
-    print(popt, pcov)
+
     # get fit curve
     fit_data["fit"] = sigmoid(x, *popt)
     # get up and down error fit
     std = np.sqrt(np.diag(pcov))
+    print(popt, std)
     fit_data["up"] = sigmoid(x, *(popt + std))
     fit_data["down"] = sigmoid(x, *(popt - std))
 
     return fit_data.T
+
