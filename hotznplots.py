@@ -123,7 +123,7 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None, baseline = None
+             x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None, baseline = None, suptitle = None
              ):
     """Plots simple graph of DataFrames
 
@@ -198,12 +198,14 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
             ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
-        title = "fig." + str(c)
+        #title = "fig." + str(c)
+        title = "GdmSCN 2 M"
         c = c + 1
         ax.set_title(title)
 
     # Title option
-    fig.suptitle('This is a somewhat long figure title', fontsize=16)
+    if suptitle is not None:
+         fig.suptitle(suptitle, fontsize=12)
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
