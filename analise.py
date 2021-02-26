@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate
 import scipy.misc
+from scipy.optimize import curve_fit
 
 
 def centering(arr, axis=1):
