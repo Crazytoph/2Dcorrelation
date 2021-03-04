@@ -23,19 +23,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
 from mpl_toolkits.mplot3d import axes3d
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import cm
 from string import ascii_lowercase
 
 
 def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
-            c_min=None, c_max=None, x_label="temperature[K]",
+            c_min=[], c_max=[], x_label="temperature[K]",
             y_label="wavelength[nm]", title="Heatmap", subtitle=[]
             ):
     """Plots heatmap.
-
        This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
        'x_max, 'y_min', y_max')
-
        Parameters:
        ----------
         *data: DataFrames or CData-object
@@ -56,7 +55,6 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
            description for plot
         subtitle: list of strings
             titles for all subfigures
-
        Notes:
        -----
        To-Do:  defining map-style
@@ -64,7 +62,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     # ensure  we are interactive mode
     # this is default but if this notebook is executed out of order it may have been turned off
     plt.ion()
-    fig = plt.figure()
+    fig = plt.figure(facecolor="lemonchiffon")
 
     # set control variable variable 'k' to one and plot for each heatmap in df
     c = 1
@@ -103,14 +101,14 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             x_label, y_label = y_label, x_label
 
         # get colorscale range if not given
-        if c_min is None:
-            c_min = arr.min()
-        if c_max is None:
-            c_max = arr.max()
+        if len(c_min) < c:
+            c_min.append(arr.min())
+        if len(c_max) < c:
+            c_max.append(arr.max())
 
         # here happens the 'real' plot with all settings
-        im = ax.imshow(arr, aspect='auto', cmap='gist_earth',
-                       vmax=c_max, vmin=c_min, interpolation='bicubic',
+        im = ax.imshow(arr, aspect='auto', cmap='gist_heat',
+                       vmax=c_max[c-1], vmin=c_min[c-1], interpolation='bicubic',
                        extent=extent, origin="lower")
 
         # make it nice
@@ -118,21 +116,22 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         ax.set_ylabel(y_label)
         # add subtitle
         if len(subtitle) < c:
-            ax.set_title("fig. " + ascii_lowercase[c - 1])
+            ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
             ax.set_title(subtitle[c - 1])
-
+        
+        # add coolorbar for each subfigur
+        divider = make_axes_locatable(ax)
+        cax2 = divider.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(im, cax=cax2)
         c = c + 1  # push control variable
 
     # Title option
     fig.suptitle(title, fontsize=16)
     plt.tight_layout()
-    # add an axes, lower left corner in [0.83, 0.1] measured in figure coordinate with axes width 0.02 and height 0.8
-    fig.subplots_adjust(bottom=0.1, top=0.85, left=0.1, right=0.9,
-                        wspace=0.05, hspace=0.1)
-    # add colorbar at specific position
-    cb_ax = fig.add_axes([0.92, 0.1, 0.02, 0.8])
-    fig.colorbar(im, cax=cb_ax)
+    
+    # clear lists
+    y_min.clear(), y_max.clear(), x_min.clear(), x_max.clear(), c_min.clear(), c_max.clear()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
@@ -143,7 +142,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-             x_label="Temperature[K]", y_label="CD values[mdeg]", title="Titel", subtitle=[],
+             x_label="Temperature[K]", y_label="CD values[mdeg]", title="", subtitle=[],
              y_scaling=False, baseline=False
              ):
     """Plots simple graph of DataFrames
@@ -183,7 +182,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
     # iterate through df in args and plot the rows
     for i in df:
-        ax = fig.add_subplot(c)  # create subplot
+        ax = fig.add_subplot(1,len(df), c)  # create subplot
 
         if swap:
             i = i.T
@@ -226,14 +225,16 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         ax.legend(rows)  # add legend
 
         # add subtitle
-        if len(subtitle) < (c - 1):
-            ax.set_title("fig. " + ascii_lowercase[c - 1])
+        if len(subtitle) <= (c - 1):
+            if len(df) > 1:
+                ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
-            ax.set_title(subtitle[c - 1])
+            ax.set_title(subtitle[c - 1], fontsize=10)
+        c = c + 1
 
     # Title option
     fig.suptitle(title, fontsize=16)
-    plt.tight_layout
+    plt.tight_layout(w_pad=0.5)
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
@@ -243,8 +244,8 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
     )
 
 
-def mult_func(rows, *probes, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-              x_label="Temperature[K]", y_label="CD values[mdeg]", title="Titel", subtitle=[],
+def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=False,
+              x_label="Temperature[K]", y_label="CD values[mdeg]", title="", subtitle=[],
               marker=[], linestyle=[], label=None,
               y_scaling=False, baseline=False
               ):
@@ -297,7 +298,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=None, y_max=None, swa
         else:
             width = 4
 
-        ax = fig.add_subplot((len(probes) // 4)+1, width, c)  # create subplot
+        ax = fig.add_subplot((len(probes) // width)+1, width, c)  # create subplot
         # iterate through all data to b plotted into one subfigure
         for i in subs:
             # check instance
@@ -309,21 +310,21 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=None, y_max=None, swa
             # swap if wished, normally False
             if swap:
                 df = df.T
-
-            # get min, max values if not given
+            
+             # get min, max values if not given
             if x_min is None:
                 x_min = df.columns[0]
             if x_max is None:
                 x_max = df.columns[-1]
-            if y_min is None:
-                y_min = min(df.loc[rows].min())
-            if y_max is None:
-                y_max = max(df.loc[rows].max())
-
+                
             k = 0  # control variable
             # plot the data for all wanted rows
             for r in rows:
-
+                
+                # check whether r is in df
+                if r not in df.index:
+                    continue
+                
                 # define function style for this plot
                 if len(marker) <= k:
                     marker.append('x')
@@ -356,9 +357,9 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=None, y_max=None, swa
 
         # add subtitle
         if len(subtitle) < (c - 1):
-            ax.set_title("fig. " + ascii_lowercase[c - 1], fontsize=5)
+            ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
-            ax.set_title(subtitle[c - 1])
+            ax.set_title(subtitle[c - 1], fontsize=5)
         c = c + 1
 
     # Title option
@@ -374,7 +375,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=None, y_max=None, swa
 
 
 def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
-              x_label="Wavelength[nm]", y_label="CD values[mdeg]", title="title", subtitle=[],
+              x_label="Wavelength[nm]", y_label="CD values[mdeg]", title="", subtitle=[],
               y_scaling=None, baseline=None,
               line1=None, line2=None, line3=None, line4=None, line5=None
               ):
@@ -471,7 +472,7 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
         ax.set_ylabel(y_label)  # Add a y-label to the axes.
 
         if len(subtitle) < (c - 1):
-            ax.set_title("fig. " + ascii_lowercase[c - 1])
+            ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
             ax.set_title(subtitle[c - 1])
         c = c + 1

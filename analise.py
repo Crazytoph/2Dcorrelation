@@ -367,7 +367,7 @@ def sigmoid_error(x, a, b, delta_a, delta_b):
     return err
 
 
-def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
+def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
 
     Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
@@ -400,7 +400,7 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     fit_data = fit_data.set_index("wavelength")
 
     # fit best parameters and their errors
-    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='trf',
                            bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
 
     # get fit curve
