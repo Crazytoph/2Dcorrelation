@@ -56,7 +56,6 @@ def heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
        -----
        To-Do:  defining map-style
        """
-
     # define all basic parameters
     if x_min is None:
         x_min = df[0].index[0]
