@@ -119,7 +119,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
             ax.set_title(subtitle[c - 1])
-        
+
         # add coolorbar for each subfigur
         divider = make_axes_locatable(ax)
         cax2 = divider.append_axes("right", size="5%", pad=0.05)
@@ -129,7 +129,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     # Title option
     fig.suptitle(title, fontsize=16)
     plt.tight_layout()
-    
+
     # clear lists
     y_min.clear(), y_max.clear(), x_min.clear(), x_max.clear(), c_min.clear(), c_max.clear()
 
@@ -231,6 +231,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         else:
             ax.set_title(subtitle[c - 1], fontsize=10)
         c = c + 1
+        ax.set_title(title)
 
     # Title option
     fig.suptitle(title, fontsize=16)
@@ -310,21 +311,21 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
             # swap if wished, normally False
             if swap:
                 df = df.T
-            
+
              # get min, max values if not given
             if x_min is None:
                 x_min = df.columns[0]
             if x_max is None:
                 x_max = df.columns[-1]
-                
+
             k = 0  # control variable
             # plot the data for all wanted rows
             for r in rows:
-                
+
                 # check whether r is in df
                 if r not in df.index:
                     continue
-                
+
                 # define function style for this plot
                 if len(marker) <= k:
                     marker.append('x')
