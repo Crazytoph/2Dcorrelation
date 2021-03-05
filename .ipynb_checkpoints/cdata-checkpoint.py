@@ -39,7 +39,7 @@ class CData:
         measured values for each temperature step
     t_list: list
         list of all measured temperatures
-    t_df: DataFrame
+    cd_df: DataFrame
         df of all CD-values depending on wavelength and temperature
 
     Methods:

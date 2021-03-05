@@ -71,7 +71,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     for i in data:
         # check the type
         if not isinstance(i, pd.core.frame.DataFrame):
-            df = i.t_df
+            df = i.cd_df
         else:
             df = i
 
@@ -304,7 +304,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
         for i in subs:
             # check instance
             if not isinstance(i, pd.core.frame.DataFrame):
-                df = i.t_df
+                df = i.cd_df
             else:
                 df = i
 
