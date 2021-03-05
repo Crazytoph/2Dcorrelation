@@ -402,11 +402,12 @@ def sigmoid_fit(df, wave=247, a_range=[0, 1], b_range=[50, 80]):
     # fit best parameters and their errors
     popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
                            bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
-    print(popt, pcov)
+
     # get fit curve
     fit_data["fit"] = sigmoid(x, *popt)
     # get up and down error fit
     std = np.sqrt(np.diag(pcov))
+    print(popt, std)
     fit_data["up"] = sigmoid(x, *(popt + std))
     fit_data["down"] = sigmoid(x, *(popt - std))
 
