@@ -356,18 +356,18 @@ def sigmoid(x, a, b):
     return 1.0 / (1.0 + np.exp(-a * (x - b)))
 
 
-def sigmoid_error(x, a, b, delta_a, delta_b):
-    """Calculates the error of sigmoid.
+def sigmoid_deriv(x, a, b):
+    """Calculates the derivative of func: sigmoid.
+
     Returns:
     -------
-        error of f on 'x'
+        derivative value  of f on 'x'
     """
-    f = np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b)))**(-2))
-    err = np.sqrt((a * f * delta_b)**2 + ((x-b) * f * delta_a)**2)
-    return err
+    f = a * np.exp(-a * (x-b)) / ((1 + np.exp(-a * (x-b)))**2)
+    return f
 
 
-def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
+def sigmoid_fit(df, wave=247, a_range=[0, 0.3], b_range=[50, 70]):
     """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
 
     Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
@@ -394,7 +394,7 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     y_data.index = y_data.index.astype(float)
 
     # prepare DataFrames
-    x = np.arange(df.columns[0], df.columns[-1] + 1)
+    x = np.arange(df.columns[0], df.columns[-1] + 1, 1)
     fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
     fit_data = pd.concat([fit_data, y_data], axis=1)
     fit_data = fit_data.set_index("wavelength")
@@ -411,4 +411,4 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     fit_data["up"] = sigmoid(x, *(popt + std))
     fit_data["down"] = sigmoid(x, *(popt - std))
 
-    return fit_data.T
+    return fit_data.T, popt

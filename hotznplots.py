@@ -87,11 +87,11 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         extent = [y_min[c - 1], y_max[c - 1], x_min[c - 1], x_max[c - 1]]
 
         # create subplot and array
-        if len(data) < 5:
+        if len(data) < 4:
             width = len(data)
         else:
-            width = 4
-        ax = fig.add_subplot((len(data) // 5) + 1, width, c)
+            width = 3
+        ax = fig.add_subplot((len(data) // 3) + 1, width, c)
         arr = pd.DataFrame.to_numpy(df.loc[x_min[c-1]:x_max[c-1], y_min[c-1]:y_max[c-1]])
 
         # if axis should be swapped
@@ -107,7 +107,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             c_max.append(arr.max())
 
         # here happens the 'real' plot with all settings
-        im = ax.imshow(arr, aspect='auto', cmap='gist_heat',
+        im = ax.imshow(arr, aspect='auto', cmap='pink',
                        vmax=c_max[c-1], vmin=c_min[c-1], interpolation='bicubic',
                        extent=extent, origin="lower")
 
@@ -293,12 +293,12 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
     # iterate through all lists for each subfigure
     for subs in probes:
         # create subplot and array
-        if len(probes) < 5:
+        if len(probes) < 4:
             width = len(probes)
         else:
-            width = 4
+            width = 3
 
-        ax = fig.add_subplot((len(probes) // width)+1, width, c)  # create subplot
+        ax = fig.add_subplot((len(probes) // 3)+1, width, c)  # create subplot
         # iterate through all data to b plotted into one subfigure
         for i in subs:
             # check instance
@@ -311,7 +311,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
             if swap:
                 df = df.T
             
-             # get min, max values if not given
+            # get min, max values if not given
             if x_min is None:
                 x_min = df.columns[0]
             if x_max is None:
@@ -331,8 +331,10 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
                 if len(linestyle) <= k:
                     linestyle.append('-')
 
-                x = list(df.loc[:, x_min:x_max].columns)  # get x-values
+                x = np.array(df.loc[:, x_min:x_max].columns)  # get x-values
                 y = pd.DataFrame.to_numpy(df.loc[r, x_min:x_max])  # get y-values
+                x = x[~(pd.isna(y))]          # remove NaN values
+                y = y[~(pd.isna(y))]
                 ax.plot(x, y, linestyle=linestyle[k], marker=marker[k],
                         color=colors[k % 10],
                         linewidth=1.5
@@ -356,15 +358,15 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
         ax.legend(label)
 
         # add subtitle
-        if len(subtitle) < (c - 1):
+        if len(subtitle) < c:
             ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
-            ax.set_title(subtitle[c - 1], fontsize=5)
+            ax.set_title(subtitle[c - 1])
         c = c + 1
 
     # Title option
     fig.suptitle(title, fontsize=16)
-    plt.tight_layout(pad=0.1, w_pad=0.1, h_pad=0.1)
+    plt.tight_layout()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
