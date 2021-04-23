@@ -83,5 +83,5 @@ if __name__ == '__main__':
     # test  stuff
     data = cdata.CData(path)
     print(data.t_list)
-    plot.heatmap( data.t_df)
+    plot.heatmap(data.cd_df)
     # test

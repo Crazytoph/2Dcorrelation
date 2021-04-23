@@ -30,6 +30,8 @@ import pandas as pd
 import scipy.interpolate
 import scipy.misc
 from scipy.optimize import curve_fit
+import lmfit
+
 
 
 def centering(arr, axis=1):
@@ -89,14 +91,14 @@ def normalize(arr, axis=1):
         diff = max_col - min_col
         diff = np.matmul(diff[:, None], np.ones((1, shape[1])))
         min_col = np.matmul(min_col[:, None], np.ones((1, shape[1])))
-        norm_arr = (arr + abs(min_col)) / diff
+        norm_arr = (arr - min_col) / diff
     if axis == 0:
         min_idx = np.array(arr.min(axis=axis))
         max_idx = np.array(arr.min(axis=axis))
         diff = max_idx - min_idx
         diff = np.matmul(diff[None, :], np.ones((shape[0], 1)))
         min_idx = np.matmul(min_idx[None, :], np.ones((shape[0], 1)))
-        norm_arr = (arr + abs(min_col)) / diff
+        norm_arr = (arr - min_idx) / diff
 
     # reformat if necessary
     if df:
@@ -191,9 +193,10 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
         dyn1 = centering(exp1)
         dyn2 = centering(exp2)
     else:
-        ref_spec = ref_spec.to_numpy()
-        dyn1 = exp1 - ref_spec
-        dyn2 = exp2 - ref_spec
+        ref_spec1 = ref_spec.loc[:, list(exp_spec[0].columns)].to_numpy()
+        ref_spec2 = ref_spec.loc[:, list(exp_spec[-1].columns)].to_numpy()
+        dyn1 = exp1 - ref_spec1
+        dyn2 = exp2 - ref_spec2
 
     # perform scaling if wanted
     if scaling == 'pareto':
@@ -210,28 +213,19 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
     async_spec = np.zeros(size)
 
     # creating Hilbert-Noda-matrix for async spectrum
-    arr = np.arange(1, rows + 1)
-    h_n_m = arr - np.array([arr]).T + np.identity(rows)
+    arr = np.arange(1, cols + 1)
+    h_n_m = arr - np.array([arr]).T + np.identity(cols)
     h_n_m = 1 / (np.pi * h_n_m)
     h_n_m = (h_n_m - h_n_m.T) / 2
     h_n_m = h_n_m[..., :cols]
 
     # calculating sync and async values for each row and column
     for i in range(rows):
-        for k in range(rows - 1):
-            sync_spec[i, k] = np.sum(dyn1[i] * dyn2[k]) / (cols - 1)
-            async_spec[i, k] = np.sum(dyn1[i]
-                                      * np.sum(np.matmul(h_n_m, dyn2[k]))
-                                      ) / (cols - 1)
-    # alternative
-    # for i in range(rows):
-    #    for k in range(rows):
-    #       sync_spec[i, k] = np.dot(dyn_spec[i, None], dyn_spec[k, None].T)/(
-    #              cols - 1)
+        for k in range(rows):
+            a, b, c = np.array([dyn1[i]]), np.array([dyn2[k]]).T, (cols - 1)
+            sync_spec[i, k] = np.sum(np.dot(a, b)) / c
+            async_spec[i, k] = np.sum(np.dot(a, np.dot(h_n_m, b))) / c
 
-    # complete other half
-    sync_spec = sync_spec + sync_spec.T - np.diag(sync_spec.diagonal())
-    async_spec = async_spec + async_spec.T - np.diag(async_spec.diagonal())
     # return spectra as DataFrame
     sync_spec = pd.DataFrame(sync_spec, index=index, columns=index)
     async_spec = pd.DataFrame(async_spec, index=index, columns=index)
@@ -344,6 +338,7 @@ def derivative(df):
     return deriv
 
 
+# general sigmoid fit and derivativ equal to s1
 def sigmoid(x, a, b):
     """A sigmoid function.
 
@@ -356,18 +351,18 @@ def sigmoid(x, a, b):
     return 1.0 / (1.0 + np.exp(-a * (x - b)))
 
 
-def sigmoid_error(x, a, b, delta_a, delta_b):
-    """Calculates the error of sigmoid.
+def sigmoid_deriv(x, a, b):
+    """Calculates the derivative of func: sigmoid.
+
     Returns:
     -------
-        error of f on 'x'
+        derivative value  of f on 'x'
     """
-    f = np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b)))**(-2))
-    err = np.sqrt((a * f * delta_b)**2 + ((x-b) * f * delta_a)**2)
-    return err
+    f = a * np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b))) ** 2)
+    return f
 
 
-def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
+def sigmoid_fit(df, wave=247, a_range=[0, 0.3], b_range=[50, 70]):
     """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
 
     Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
@@ -394,13 +389,13 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     y_data.index = y_data.index.astype(float)
 
     # prepare DataFrames
-    x = np.arange(df.columns[0], df.columns[-1] + 1)
+    x = np.arange(df.columns[0], df.columns[-1] + 1, 1)
     fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
     fit_data = pd.concat([fit_data, y_data], axis=1)
     fit_data = fit_data.set_index("wavelength")
 
     # fit best parameters and their errors
-    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='trf',
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
                            bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
 
     # get fit curve
@@ -411,4 +406,101 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     fit_data["up"] = sigmoid(x, *(popt + std))
     fit_data["down"] = sigmoid(x, *(popt - std))
 
-    return fit_data.T
+    return fit_data.T, popt, std
+
+
+# functions based on origin documentation
+# https://www.originlab.com/doc/Origin-Help/Curve-Fitting-Function#Growth.2FSigmoidal
+def log(x, a=1, y0=0, x_c=63, p=0.3):
+    """Logistic dose response in Pharmacology/Chemistry.
+
+    Parameter:
+    ---------
+        x: float
+            variable
+        a: float
+            amplitude
+        y0: float
+            lowest value
+        x_c: float
+            center of sigmoid
+        p: float
+            power, p > 0.0
+    Return:
+    ------
+        f: array of floats
+            function value on x
+    """
+    f = (a - y0) / (1 + ((x/x_c) ** p)) + y0
+    return f
+
+
+def s1(x, a=1, y0=0, k=0.3, xc=63):
+    """Sigmoidal Logistic function, type 1.
+
+    Parameter:
+    ---------
+        x: float
+            variable
+        a: float
+            amplitude
+        xc: float
+            center of sigmoidal, xc >0
+        k: float
+            coefficient
+
+    Return:
+    ------
+        f: arry of floats
+            fuction value on 'x'
+    """
+    f = (a / (1 + np.exp(-k*(x - xc)))) + y0
+    return f
+
+
+def linear(x, m=1, y0=0):
+    """linear function"""
+    f = m*x + y0
+    return f
+
+
+def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
+    """Test function for trying out lm-fit module."""
+
+    # get data to be fitted
+    x = list(df.columns)
+    data = df.loc[wave, :]  # get y points
+    data.index = data.index.astype(float)
+
+    # get model chosen by 'function'
+    if f_type == 'log':
+        model = lmfit.Model(log)
+    if f_type == 's1':
+        model = lmfit.Model(s1)
+    if f_type == 'linear':
+        model = lmfit.Model(linear)
+    if f_type == 'sigmoid':
+        model = lmfit.Model(sigmoid)
+
+    # change guess values of parameter
+    for i in range(len(guess)):
+        params = model.param_names
+        model.set_param_hint(params[i], value=guess[i])
+
+    # fit and print fit report
+    result = model.fit(data, x=x, method=method, nan_policy='propagate')
+    print(result.fit_report())
+
+    # get confidence report and stuff
+    #result.conf_interval()
+    #print(result.ci_report())
+
+    # prepare DataFrame for return
+    fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
+    fit_data = pd.concat([fit_data, data], axis=1)
+    fit_data = fit_data.set_index("wavelength")
+    fit_data["fit"] = result.best_fit
+    fit_data["error"] = result.eval_uncertainty()
+    fit_data["residual"] = result.residual
+
+    return fit_data, result.params.valuesdict()
