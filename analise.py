@@ -406,13 +406,12 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     hilbert_noda = 1 / (2 * np.pi * hilbert_noda)
     hilbert_noda = hilbert_noda * np.array([temp_list[arr + 1] - temp_list[arr - 1]])
     hilbert_noda = (hilbert_noda - hilbert_noda.T) / 2
-
     temp_space = np.array([temp_list[arr + 1] - temp_list[arr - 1]]).T
-
+    print(temp_space, temp_list)
     # calculate synchronous and asynchronous spectrum with matrix
     sync_spec = np.dot(dyn1, dyn2.T * temp_space) \
                 / (2 * (temp_list[-2] - temp_list[1]))
-    async_spec = np.dot(dyn1, np.dot(hilbert_noda, dyn2.T * temp_space)) \
+    async_spec = np.dot(dyn1, np.dot(hilbert_noda, dyn2.T) * temp_space) \
                  / (2 * (temp_list[-2] - temp_list[1]))
 
     # return spectra as DataFrame

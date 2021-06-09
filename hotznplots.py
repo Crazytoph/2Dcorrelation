@@ -206,7 +206,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
     # iterate through df in args and plot the rows
     for i in df:
-        ax = fig.add_subplot(1,len(df), c)  # create subplot
+        ax = fig.add_subplot(1, len(df), c)  # create subplot
 
         if swap:
             i = i.T
@@ -225,7 +225,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
+            ax.plot(x, y, linestyle='-', marker='', color=colors[k % 10],
                     linewidth=1
                     )
             k = k + 1
@@ -237,10 +237,6 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         if baseline is True:
             # plots line into graph
             ax.plot([x_min, x_max], [0, 0], color='k', linestyle=':', linewidth=1)
-
-        # plots line into graph
-        if baseline is not None:
-            ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
 
         # make it nice
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
@@ -323,7 +319,7 @@ def mult_func(rows, *probes, error={}, swap=False,
     # create color list and color variables
     #colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
     #          'tab:olive', 'tab:cyan']
-    colors = ['black', 'lightcoral', 'firebrick', 'darkred']
+    colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']
 
     c = 1  # control variable
 
@@ -383,9 +379,9 @@ def mult_func(rows, *probes, error={}, swap=False,
                 # plot errorbar if given
                 if r in error.keys():
                     yerr = error[r]
-                    ax.errorbar(x, y, yerr=yerr, color=colors[k % 10])
+                    ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
                     # also create fill
-                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % 10])
+                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
                 k = k + 1
 
         if len(vertical_line) >= c:
@@ -394,7 +390,7 @@ def mult_func(rows, *probes, error={}, swap=False,
 
         # scaling
         if y_scaling is True:
-            ax.set_ylim([y_min[c], y_max[c]])  # Y-axis scaling
+            ax.set_ylim([y_min[c-1], y_max[c-1]])  # Y-axis scaling
 
         # baseline
         if baseline is True:
