@@ -105,6 +105,45 @@ def normalize(arr, axis=1):
     return norm_arr
 
 
+def auto_scaling(arr, axis=1):
+    """Performs Auto-scaling on data, also called Pearson scaling.
+    Performs pareto-scaling according to [1]_ ,
+    ..math: \tilde{x}_{ij} = \frac{x_{ij}}{s_{i}}
+    Parameter:
+    ---------
+    df: DataFrame
+    Return:
+    ------
+    auto: like dtype of arr
+        scaled data
+    References:
+    ----------
+    ..[1] van den Berg, R. A., Hoefsloot, H. C. J., Westerhuis, J. A., Smilde, A. K., & van der Werf, M. J. (2006).
+     Centering, scaling, and transformations: Improving the biological information content of metabolomics data.
+     BMC Genomics, 7. https://doi.org/10.1186/1471-2164-7-142
+    """
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+
+    # perform pareto scaling
+    avg = arr.mean(axis=axis)  # mean
+    std = arr.std(axis=axis, ddof=1)  # standard deviation
+    if axis == 0:
+        auto = (arr - np.reshape(avg, (1, len(avg)))) / np.reshape(std, (1, len(std)))
+    if axis == 1:
+        auto = (arr - np.reshape(avg, (len(avg), 1))) / np.reshape(std, (len(std), 1))
+
+    # reformat if necessary
+    if df:
+        auto = pd.DataFrame(auto, index=idx, columns=col)
+
+    return auto
+
+
 def pareto_scaling(arr, axis=1):
     """Performs Pareto-scaling on data.
 
@@ -139,7 +178,7 @@ def pareto_scaling(arr, axis=1):
 
     # perform pareto scaling
     avg = arr.mean(axis=axis)  # mean
-    std = arr.std(axis=axis)  # standard deviation
+    std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
         pareto = (arr - np.reshape(avg, (1, len(avg)))) / np.sqrt(np.reshape(std, (1, len(std))))
     if axis == 1:
@@ -152,13 +191,84 @@ def pareto_scaling(arr, axis=1):
     return pareto
 
 
-def correlation(*exp_spec, ref_spec=None, scaling=None):
-    """ Performs 2D correlation analysis.
+def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+    """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
+     Method is based on [1]_
+     Parameters:
+     ----------
+        data_df: DataFrame or numpy array
+            original data
+        rows: list of integer
+            rows to be used for projection
+        alpha: integer
+            proportion of projection into new matrix
+        positive_projection: boolean
+            parameter determining whether a positive projection should be done
+    Note:
+    ----
+        positive projection only works with single rows
+    References:
+    ----------
+        ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
+         974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
+    Return:
+    ------
+        projection_mat: DataFrame
+            projection matrix
+     """
+    df = False
+    # check if 'data_df' is DataFrame
+    if not isinstance(data_df, np.ndarray):
+        df = True
 
+        # get col und idx names
+        col = data_df.columns
+        idx = data_df.index
+
+        # prepare 'response_val' and 'data' as numpy arrays
+        response_val = data_df.loc[rows[0]:rows[-1]].T
+        response_val = response_val.to_numpy()
+        data = data_df.T.to_numpy()
+    else:
+        response_val = data_df[rows[0]:(rows[-1] + 1)].T
+        data = data_df.T
+
+    if positive_projection is False:
+        # get projection matrix and residual-maker-matrix('residual_mat')'
+        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
+        projection_mat = np.dot(eigenvector, eigenvector.T)
+        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
+
+        # mix both according to proportion-factor
+        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
+    else:
+        # norm vector and calculate loading vector
+        normed_vec = response_val / np.linalg.norm(response_val)
+        loading_vector = np.dot(data.T, normed_vec)
+
+        # change all negative values to zero
+        for i in range(loading_vector.shape[0]):
+            if loading_vector[i] <= 0:
+                loading_vector[i] = 0
+
+        # calculated positive projected data
+        projected_data_plus = np.dot(normed_vec, loading_vector.T)
+        # and mix it
+        mixed_projected_data = data - (1 - alpha) * projected_data_plus
+
+    # change back to DataFrame
+    if df is True:
+        mixed_projected_data = pd.DataFrame(mixed_projected_data, index=idx, columns=col)
+
+    return mixed_projected_data.T
+
+
+def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
+                projection=False, proj_positivity=True, proj_rows=None, proj_alpha=0):
+    """ Performs 2D correlation analysis.
     Calculates the Synchronous and Asynchronous 2D correlation of a given
     Spectrum according to [1]_ .
     Hereby the dynamic spectrum is taken by subtracting the average.
-
     Parameters:
     ----------
     exp_spec: DataFrames
@@ -169,36 +279,57 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
         Spectrum.
     scaling: String
         Defines type of scaling if there is no reference spectrum, can be 'pareto' or 'centering'
-
     Returns:
     -------
     sync_spec, async_spec: array_like
         The synchronous respectively asynchronous
         correlation spectrum
-
     References:
     ----------
         ..[1]: Noda, I. (2000). Determination of Two - Dimensional Correlation Spectra Using the Hilbert Transform 5 E.
          54(7), 994–999.
     """
-    # transform dataFrame to numpy
-    index = list(exp_spec[0].index)
-    exp1 = exp_spec[0].to_numpy()
-    exp2 = exp_spec[-1].to_numpy()
+    # getting index and shared column values
+    idx = exp_spec[0].index
+    col = pd.concat(exp_spec, join='inner').columns
 
-    # create dynamic spectrum
+    # get single spectra
+    exp1 = exp_spec[0]
+    exp2 = exp_spec[-1]
+
+    # create dynamic spectrum from average or reference
     if ref_spec is None:
-        dyn1 = centering(exp1)
-        dyn2 = centering(exp2)
+        # from average spectrum
+        dyn1 = centering(exp1.loc[:, col])
+        dyn2 = centering(exp2.loc[:, col])
     else:
-        ref_spec = ref_spec.to_numpy()
-        dyn1 = exp1 - ref_spec
-        dyn2 = exp2 - ref_spec
+        # from reference spectrum
+        dyn1 = exp1.loc[:, col].subtract(ref_spec, axis=0)
+        dyn2 = exp2.loc[:, col].subtract(ref_spec, axis=0)
+
+        # extra centering if wanted
+        if center is True:
+            dyn1 = centering(dyn1)
+            dyn2 = centering(dyn2)
 
     # perform scaling if wanted
     if scaling == 'pareto':
-        dyn1 = pareto_scaling(exp1)
-        dyn2 = pareto_scaling(exp2)
+        dyn1 = pareto_scaling(dyn1)
+        dyn2 = pareto_scaling(dyn1)
+    if scaling == 'auto':
+        dyn1 = auto_scaling(dyn1)
+        dyn2 = auto_scaling(dyn2)
+
+    # transform to numpy array
+    dyn1 = dyn1.to_numpy()
+    dyn2 = dyn2.to_numpy()
+
+    # perform projection if wanted
+    if projection is True:
+        proj_rows[0] = proj_rows[0] - 200
+        proj_rows[-1] = proj_rows[-1] - 200
+        dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
+        dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
 
     # getting number of rows and columns
     rows = dyn1.shape[0]
@@ -233,8 +364,8 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
     sync_spec = sync_spec + sync_spec.T - np.diag(sync_spec.diagonal())
     async_spec = async_spec + async_spec.T - np.diag(async_spec.diagonal())
     # return spectra as DataFrame
-    sync_spec = pd.DataFrame(sync_spec, index=index, columns=index)
-    async_spec = pd.DataFrame(async_spec, index=index, columns=index)
+    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx)
+    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx)
     return sync_spec, async_spec
 
 
