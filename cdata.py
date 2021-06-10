@@ -27,31 +27,35 @@ class CData:
 
     Attributes:
     ----------
-    path: string
-        path of the original measurement files
-    dna: string
-        type of DNA measured
-    denaturant:  string
-        type of denaturant used
-    concentration: string
-        denaturant concentration used
-    data: dictionary
-        measured values for each temperature step
-    t_list: list
-        list of all measured temperatures
-    t_df: DataFrame
-        df of all CD-values depending on wavelength and temperature
+        path: string
+            path of the original measurement files
+        dna: string
+            type of DNA measured
+        denaturant:  string
+            type of denaturant used
+        concentration: string
+            denaturant concentration used
+        data: dictionary
+            measured values for each temperature step
+        t_list: list
+            list of all measured temperatures
+        cd_df: DataFrame
+            df of all CD-values depending on wavelength and temperature
+        absorb_df: DataFrame
+            df of all Absorbance-values depending on wavelength and temperature
 
     Methods:
     -------
-    temp_df():
-        returns CD values in a Dataframe for wavelengths and temperature
-    __path_split():
-        split path into folder names
-    __folder_opening():
-        opens each file in folder
-    --file_opening():
-        extracts data from file
+        cd_df():
+            returns CD values in a Dataframe for wavelengths and temperature
+        absorb_df():
+            returns absorbance values in a DataFrame for wavelengths and temperature
+        __path_split():
+            split path into folder names
+        __folder_opening():
+            opens each file in folder
+        --file_opening():
+            extracts data from file
     """
 
     def __init__(self, path):
@@ -74,9 +78,10 @@ class CData:
         self.concentration = self.__name_split()[-2]
         self.data = self.__folder_opening()
         self.t_list = list(self.data.keys())
-        self.t_df = self.temp_df()
+        self.cd_df = self.cd_df()
+        self.absorb_df = self.absorb_df()
 
-    def temp_df(self):
+    def cd_df(self):
         """Creates wavelength-temperature dataframe.
 
         Takes the data dictionary and takes the CD value in relation to
@@ -85,7 +90,7 @@ class CData:
 
         Returns:
         ---------
-        temp_matrix: data-frame
+        cd_matrix: data-frame
             index is the wavelengths, columns the temperature
         """
         # Define max. and min. values from measured wavelengths in nm
@@ -98,22 +103,61 @@ class CData:
             wave_list.append(wave_min + i + 1)
 
         # create DataFrame
-        temp_matrix = pd.DataFrame(wave_list, columns=[0])
+        cd_matrix = pd.DataFrame(wave_list, columns=[0])
 
         # iterate through dictionary adding columns to dataframe
         for key in self.data:
             col = self.data[key]
             col = col[..., 0:2]
             df = pd.DataFrame(col, columns=[0, key])
-            temp_matrix = pd.merge(temp_matrix, df, on=0)
+            cd_matrix = pd.merge(cd_matrix, df, on=0)
 
         # order columns, change name to wavelength as index
-        cols = temp_matrix.columns
-        temp_matrix = temp_matrix[cols.sort_values()]
-        temp_matrix = temp_matrix.rename(columns={0: 'wavelength'})
-        temp_matrix = temp_matrix.set_index('wavelength')
+        cols = cd_matrix.columns
+        cd_matrix = cd_matrix[cols.sort_values()]
+        cd_matrix = cd_matrix.rename(columns={0: 'wavelength'})
+        cd_matrix = cd_matrix.set_index('wavelength')
 
-        return temp_matrix
+        return cd_matrix
+
+    def absorb_df(self):
+        """Creates wavelength-temperature dataframe.
+
+        Takes the data dictionary and takes the Absorbance value in relation to
+        the wavelength as index and the respective temperature as column
+        value
+
+        Returns:
+        ---------
+        absorb_matrix: data-frame
+            index is the wavelengths, columns the temperature
+        """
+        # Define max. and min. values from measured wavelengths in nm
+        wave_max = 330
+        wave_min = 200
+
+        # create List of measured wavelength
+        wave_list = [wave_min]
+        for i in range(wave_max - wave_min):
+            wave_list.append(wave_min + i + 1)
+
+        # create DataFrame
+        absorb_matrix = pd.DataFrame(wave_list, columns=[0])
+
+        # iterate through dictionary adding columns to dataframe
+        for key in self.data:
+            col = self.data[key]
+            col = col[..., [0, 3]]
+            df = pd.DataFrame(col, columns=[0, key])
+            absorb_matrix = pd.merge(absorb_matrix, df, on=0)
+
+        # order columns, change name to wavelength as index
+        cols = absorb_matrix.columns
+        absorb_matrix = absorb_matrix[cols.sort_values()]
+        absorb_matrix = absorb_matrix.rename(columns={0: 'wavelength'})
+        absorb_matrix = absorb_matrix.set_index('wavelength')
+
+        return absorb_matrix
 
     def __name_split(self):
         """Splits name into list and formats it to get key information."""
@@ -123,7 +167,7 @@ class CData:
         name = os.path.split(name)[1]
         name_split = name.split(' ')
         name_split[-1] = name_split[-1].split('-')[0]
-        name_split[3: 5] = [''.join(name_split[3: 5])]
+        name_split[-3: -1] = [''.join(name_split[-3: -1])]
         # name_split.remove('mit')
         return name_split
 

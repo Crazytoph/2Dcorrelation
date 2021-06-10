@@ -6,8 +6,14 @@ Functions:
 ---------
     centering(arr, axis):
         centers data around axis
+    normalize(arr, axis=1):
+        normalize data from 0 to 1
+    projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+        creates mixture of projection and residue matrix of certain rows
+    auto_scaling(arr, axis=1):
+        scales data by the standard deviation along axis
     pareto_scaling(arr,axis):
-        scales data around axis
+        scales data by the root of the standard deviation along axis
     correlation(*exp, ref):
         performs 2D correlation analysis on 'circ_data'
     max_wave(df, wave_min, wave_max):
@@ -30,44 +36,104 @@ import pandas as pd
 import scipy.interpolate
 import scipy.misc
 from scipy.optimize import curve_fit
+import lmfit
 
 
-def centering(arr, axis=1):
+def centering(arr):
     """Centers data by subtracting the average.
 
     Centering given data by subtracting the average of respectively each
-    column('axis'=0) or each row('axis'=1).
+    column.
 
     Parameter:
     ---------
     arr: numpy array or dataframe
-    axis: int
-        can be 0 for column or 1 for row
+
     Return:
     ------
     center: like dtype of arr
         centered data
     """
-    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
-    df = False
-    if not isinstance(arr, np.ndarray):
-        df = True
-        col = arr.columns
-        idx = arr.index
-        arr = arr.to_numpy()
-
     # center
-    avg = arr.mean(axis=axis)
-    if axis == 0:
-        center = arr - np.reshape(avg, (1, len(avg)))
-    else:
-        center = arr - np.reshape(avg, (len(avg), 1))
-
-    # reformat if necessary
-    if df:
-        center = pd.DataFrame(center, index=idx, columns=col)
+    avg = weighted_mean(arr)
+    center = arr - avg
 
     return center
+
+
+def weighted_mean(df):
+    """ Calculates the weighted mean of unevenly-spaced data.
+
+    Based on:
+    Noda, I. and Y.Ozaki.
+    “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
+    Chapter: "Practical Computation of 2D Correlation Spectra"
+
+     Parameter:
+        ---------
+        df: original DataFrame
+
+        Return:
+        ------
+        mean: numpy array
+            vector with mean value per row
+    """
+    # get col, idx and convert to numpy
+    col = df.columns
+    idx = df.index
+    arr = df.to_numpy()
+
+    # get Temperature as List ad T_0 and T_(M+1)
+    temp_list = list(col)
+    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+
+    # calculate mean
+    norm = 0
+    mean = np.zeros((idx.size, 1))
+    for i in range(col.size):
+        mean = mean + arr[:, i, None] * (temp_list[i + 2] - temp_list[i])
+        norm = norm + (temp_list[i + 2] - temp_list[i])
+    mean = mean / norm
+    return mean
+
+
+def weighted_std(df):
+    """ Calculates the weighted mean of unevenly-spaced data.
+
+        Based on:
+        Noda, I. and Y.Ozaki.
+        “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
+        Chapter: "Practical Computation of 2D Correlation Spectra"
+
+        and "https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance" (11.05.2021)
+
+         Parameter:
+            ---------
+            df: original DataFrame
+
+            Return:
+            ------
+            std: numpy array
+                vector with standard deviation of each row
+        """
+    # get col, idx and convert to numpy
+    col = df.columns
+    idx = df.index
+    mean = weighted_mean(df)
+    arr = df.to_numpy()
+
+    # get Temperature as List ad T_0 and T_(M+1)
+    temp_list = list(col)
+    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+
+    # calculate std
+    norm = 0
+    std = np.zeros((idx.size, 1))
+    for i in range(col.size):
+        std = std + (arr[:, i, None] - mean) ** 2 * (temp_list[i + 2] - temp_list[i])
+        norm = norm + (temp_list[i + 2] - temp_list[i])
+
+    return std / norm
 
 
 def normalize(arr, axis=1):
@@ -89,14 +155,14 @@ def normalize(arr, axis=1):
         diff = max_col - min_col
         diff = np.matmul(diff[:, None], np.ones((1, shape[1])))
         min_col = np.matmul(min_col[:, None], np.ones((1, shape[1])))
-        norm_arr = (arr + abs(min_col)) / diff
+        norm_arr = (arr - min_col) / diff
     if axis == 0:
         min_idx = np.array(arr.min(axis=axis))
         max_idx = np.array(arr.min(axis=axis))
         diff = max_idx - min_idx
         diff = np.matmul(diff[None, :], np.ones((shape[0], 1)))
         min_idx = np.matmul(min_idx[None, :], np.ones((shape[0], 1)))
-        norm_arr = (arr + abs(min_col)) / diff
+        norm_arr = (arr - min_idx) / diff
 
     # reformat if necessary
     if df:
@@ -116,6 +182,7 @@ def auto_scaling(arr, axis=1):
     ------
     auto: like dtype of arr
         scaled data
+        
     References:
     ----------
     ..[1] van den Berg, R. A., Hoefsloot, H. C. J., Westerhuis, J. A., Smilde, A. K., & van der Werf, M. J. (2006).
@@ -140,7 +207,7 @@ def auto_scaling(arr, axis=1):
     # reformat if necessary
     if df:
         auto = pd.DataFrame(auto, index=idx, columns=col)
-
+        
     return auto
 
 
@@ -149,18 +216,16 @@ def pareto_scaling(arr, axis=1):
 
     Performs pareto-scaling according to [1]_ ,
 
-    ..math: \tilde{x}_{ij} = \frac{x_{ij}-\bar{x_{i}}}{\sqrt{s_{i}}}
+    ..math: \tilde{x}_{ij} = \frac{x_{ij}}{\sqrt{s_{i}}}
 
     Parameter:
     ---------
-    arr: numpy array or dataframe
-    axis: int
-        can be 0 for column or 1 for row
+    df: DataFrame
 
     Return:
     ------
     pareto: like dtype of arr
-        scaled date
+        scaled data
 
     References:
     ----------
@@ -168,13 +233,54 @@ def pareto_scaling(arr, axis=1):
      Centering, scaling, and transformations: Improving the biological information content of metabolomics data.
      BMC Genomics, 7. https://doi.org/10.1186/1471-2164-7-142
     """
-    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
+    # get column and index names and convert to array
+    col = df.columns
+    idx = df.index
+    arr = df.to_numpy()
+
+    # perform pareto scaling
+    std = weighted_std(df)
+    pareto = arr / np.sqrt(np.reshape(std, (len(std), 1)))
+    # reformat
+    pareto = pd.DataFrame(pareto, index=idx, columns=col)
+
+    return pareto
+
+
+def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+    """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
+
+     Method is based on [1]_
+
+     Parameters:
+     ----------
+        data_df: DataFrame or numpy array
+            original data
+        rows: list of integer
+            rows to be used for projection
+        alpha: integer
+            proportion of projection into new matrix
+        positive_projection: boolean
+            parameter determining whether a positive projection should be done
+
+    Note:
+    ----
+        positive projection only works with single rows
+
+    References:
+    ----------
+        ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
+         974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
+
+    Return:
+    ------
+        projection_mat: DataFrame
+            projection matrix
+     """
     df = False
-    if not isinstance(arr, np.ndarray):
+    # check if 'data_df' is DataFrame
+    if not isinstance(data_df, np.ndarray):
         df = True
-        col = arr.columns
-        idx = arr.index
-        arr = arr.to_numpy()
 
     # perform pareto scaling
     avg = arr.mean(axis=axis)  # mean
@@ -184,12 +290,32 @@ def pareto_scaling(arr, axis=1):
     if axis == 1:
         pareto = (arr - np.reshape(avg, (len(avg), 1))) / np.sqrt(np.reshape(std, (len(std), 1)))
 
-    # reformat if necessary
-    if df:
-        pareto = pd.DataFrame(pareto, index=idx, columns=col)
 
-    return pareto
+        # prepare 'response_val' and 'data' as numpy arrays
+        response_val = data_df.loc[rows[0]:rows[-1]].T
+        response_val = response_val.to_numpy()
+        data = data_df.T.to_numpy()
+    else:
+        response_val = data_df[rows[0]:(rows[-1] + 1)].T
+        data = data_df.T
 
+    if positive_projection is False:
+        # get projection matrix and residual-maker-matrix('residual_mat')'
+        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
+        projection_mat = np.dot(eigenvector, eigenvector.T)
+        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
+
+        # mix both according to proportion-factor
+        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
+    else:
+        # norm vector and calculate loading vector
+        normed_vec = response_val / np.linalg.norm(response_val)
+        loading_vector = np.dot(data.T, normed_vec)
+
+        # change all negative values to zero
+        for i in range(loading_vector.shape[0]):
+            if loading_vector[i] <= 0:
+                loading_vector[i] = 0
 
 def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
     """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
@@ -331,41 +457,21 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
         dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
         dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
 
-    # getting number of rows and columns
-    rows = dyn1.shape[0]
-    cols = dyn1.shape[1]
-
-    # creating 2d arrays for sync and async spectra
-    size = (rows, rows)
-    sync_spec = np.zeros(size)
-    async_spec = np.zeros(size)
-
     # creating Hilbert-Noda-matrix for async spectrum
     arr = np.arange(1, rows + 1)
     h_n_m = arr - np.array([arr]).T + np.identity(rows)
     h_n_m = 1 / (np.pi * h_n_m)
     h_n_m = (h_n_m - h_n_m.T) / 2
     h_n_m = h_n_m[..., :cols]
+    
+    # calculate synchronous and asynchronous spectrum with matrix
+    sync_spec = np.dot(dyn1, dyn2.T) / (cols  - 1)
+    async_spec = np.dot(dyn1, np.dot(hilbert_noda, dyn2.T)) / (cols - 1)
 
-    # calculating sync and async values for each row and column
-    for i in range(rows):
-        for k in range(rows - 1):
-            sync_spec[i, k] = np.sum(dyn1[i] * dyn2[k]) / (cols - 1)
-            async_spec[i, k] = np.sum(dyn1[i]
-                                      * np.sum(np.matmul(h_n_m, dyn2[k]))
-                                      ) / (cols - 1)
-    # alternative
-    # for i in range(rows):
-    #    for k in range(rows):
-    #       sync_spec[i, k] = np.dot(dyn_spec[i, None], dyn_spec[k, None].T)/(
-    #              cols - 1)
-
-    # complete other half
-    sync_spec = sync_spec + sync_spec.T - np.diag(sync_spec.diagonal())
-    async_spec = async_spec + async_spec.T - np.diag(async_spec.diagonal())
     # return spectra as DataFrame
-    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx)
-    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx)
+    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx, dtype=float)
+    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx, dtype=float)
+
     return sync_spec, async_spec
 
 
@@ -475,6 +581,7 @@ def derivative(df):
     return deriv
 
 
+# general sigmoid fit and derivativ equal to s1
 def sigmoid(x, a, b):
     """A sigmoid function.
 
@@ -487,18 +594,18 @@ def sigmoid(x, a, b):
     return 1.0 / (1.0 + np.exp(-a * (x - b)))
 
 
-def sigmoid_error(x, a, b, delta_a, delta_b):
-    """Calculates the error of sigmoid.
+def sigmoid_deriv(x, a, b):
+    """Calculates the derivative of func: sigmoid.
+
     Returns:
     -------
-        error of f on 'x'
+        derivative value  of f on 'x'
     """
-    f = np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b)))**(-2))
-    err = np.sqrt((a * f * delta_b)**2 + ((x-b) * f * delta_a)**2)
-    return err
+    f = a * np.exp(-a * (x - b)) / ((1 + np.exp(-a * (x - b))) ** 2)
+    return f
 
 
-def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
+def sigmoid_fit(df, wave=247, a_range=[0, 0.3], b_range=[50, 70]):
     """Fits a sigmoid function on data on wavelength 'wave' in 'df'.
 
     Data must be normalized! b is somewhat the y=0.5 value, a the width of the function.
@@ -525,13 +632,13 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     y_data.index = y_data.index.astype(float)
 
     # prepare DataFrames
-    x = np.arange(df.columns[0], df.columns[-1] + 1)
+    x = np.arange(df.columns[0], df.columns[-1] + 1, 1)
     fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
     fit_data = pd.concat([fit_data, y_data], axis=1)
     fit_data = fit_data.set_index("wavelength")
 
     # fit best parameters and their errors
-    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='trf',
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox',
                            bounds=([a_range[0], b_range[0]], [a_range[-1], b_range[-1]]))
 
     # get fit curve
@@ -542,4 +649,76 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.2], b_range=[0, 50]):
     fit_data["up"] = sigmoid(x, *(popt + std))
     fit_data["down"] = sigmoid(x, *(popt - std))
 
-    return fit_data.T
+    return fit_data.T, popt, std
+
+
+# functions based on origin documentation
+# https://www.originlab.com/doc/Origin-Help/Curve-Fitting-Function#Growth.2FSigmoidal
+
+def s1(x, a=1, y0=0, k=0.3, xc=63):
+    """Sigmoidal Logistic function, type 1.
+
+    Parameter:
+    ---------
+        x: float
+            variable
+        a: float
+            amplitude
+        xc: float
+            center of sigmoidal, xc >0
+        k: float
+            coefficient
+
+    Return:
+    ------
+        f: arry of floats
+            fuction value on 'x'
+    """
+    f = (a / (1 + np.exp(-k * (x - xc)))) + y0
+    return f
+
+
+def linear(x, m=1, y0=0):
+    """linear function"""
+    f = m * x + y0
+    return f
+
+
+def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
+    """Test function for trying out lm-fit module."""
+
+    # get data to be fitted
+    x = list(df.columns)
+    data = df.loc[wave, :]  # get y points
+    data.index = data.index.astype(float)
+
+    # get model chosen by 'function'
+    if f_type == 's1':
+        model = lmfit.Model(s1)
+    if f_type == 'linear':
+        model = lmfit.Model(linear)
+    if f_type == 'sigmoid':
+        model = lmfit.Model(sigmoid)
+
+    # change guess values of parameter
+    for i in range(len(guess)):
+        params = model.param_names
+        model.set_param_hint(params[i], value=guess[i])
+
+    # fit and print fit report
+    result = model.fit(data, x=x, method=method, nan_policy='propagate')
+    print(result.fit_report())
+
+    # get confidence report and stuff
+    # result.conf_interval()
+    # print(result.ci_report())
+
+    # prepare DataFrame for return
+    fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
+    fit_data = pd.concat([fit_data, data], axis=1)
+    fit_data = fit_data.set_index("wavelength")
+    fit_data["fit"] = result.best_fit
+    fit_data["error"] = result.eval_uncertainty()
+    fit_data["residual"] = result.residual
+
+    return fit_data, result.params.valuesdict(), result.params['xc'].stderr

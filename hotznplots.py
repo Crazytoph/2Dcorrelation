@@ -2,10 +2,17 @@
 
 Functions:
 ---------
-    heatmap(*df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
-            c_min=None, c_max=None, x_label="temperature[K]",
-            y_label="wavelength[nm]", title="Heatmap"):
+    heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
+            c_min=[], c_max=[], x_label="temperature[°C]",
+            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines="True"
+            ):
         Plots heatmap of an dataframe.
+    mult_func(rows, *probes, error={}, swap=False,
+              x_label="Temperature[°C]", y_label="CD values[mdeg]", title="", subtitle=[],
+              backgroundcolor="white", marker=[], linestyle=[], label=None,
+              y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[]
+              ):
+        Plots one or multiple subplots.
     function(rows, *df, x_min=None, x_max=None, swap=False,
              x_label="Temperature[K]", y_label="CD values[mdeg]", y_scaling=None
              ):
@@ -16,21 +23,28 @@ Functions:
               ):
         Plots values for selected indices over the column values specifically for Temperature
         on x-axis.
+    function3d(*df, x_min=None, x_max=None):
+        Plots 3d function. Work in progress.
+
+
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import ipywidgets as widgets
+from mpl_toolkits.mplot3d import art3d
 from mpl_toolkits.mplot3d import axes3d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import cm
+from matplotlib.ticker import LinearLocator
 from string import ascii_lowercase
 
 
 def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
-            c_min=[], c_max=[], x_label="temperature[K]",
-            y_label="wavelength[nm]", title="Heatmap", subtitle=[]
+            c_min=[], c_max=[], x_label="temperature[°C]",
+            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines=True
             ):
     """Plots heatmap.
        This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
@@ -55,6 +69,9 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
            description for plot
         subtitle: list of strings
             titles for all subfigures
+        contour_lines: boolean
+            parameter for switching on/off contour lines
+
        Notes:
        -----
        To-Do:  defining map-style
@@ -62,7 +79,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     # ensure  we are interactive mode
     # this is default but if this notebook is executed out of order it may have been turned off
     plt.ion()
-    fig = plt.figure(facecolor="lemonchiffon")
+    fig = plt.figure(facecolor="white")
 
     # set control variable variable 'k' to one and plot for each heatmap in df
     c = 1
@@ -71,7 +88,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     for i in data:
         # check the type
         if not isinstance(i, pd.core.frame.DataFrame):
-            df = i.t_df
+            df = i.cd_df
         else:
             df = i
 
@@ -87,18 +104,20 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         extent = [y_min[c - 1], y_max[c - 1], x_min[c - 1], x_max[c - 1]]
 
         # create subplot and array
-        if len(data) < 5:
+        if len(data) < 4:
             width = len(data)
         else:
-            width = 4
-        ax = fig.add_subplot((len(data) // 5) + 1, width, c)
+            width = 3
+        ax = fig.add_subplot((len(data) // 3) + 1, width, c)
         arr = pd.DataFrame.to_numpy(df.loc[x_min[c-1]:x_max[c-1], y_min[c-1]:y_max[c-1]])
 
         # if axis should be swapped
         if swap:
             arr = arr.T
             extent = extent[2:4] + extent[0:2]
-            x_label, y_label = y_label, x_label
+            xlabel, ylabel = y_label, x_label
+        else:
+            xlabel, ylabel = x_label, y_label
 
         # get colorscale range if not given
         if len(c_min) < c:
@@ -107,13 +126,18 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             c_max.append(arr.max())
 
         # here happens the 'real' plot with all settings
-        im = ax.imshow(arr, aspect='auto', cmap='gist_heat',
+        im = ax.imshow(arr, aspect='auto', cmap='jet',
                        vmax=c_max[c-1], vmin=c_min[c-1], interpolation='bicubic',
                        extent=extent, origin="lower")
 
+        # add contour lines of wanted
+        if contour_lines is True:
+            CS = ax.contour(arr, 6, colors='k', extent=extent, origin="lower")  # Negative contours default to dashed.
+            ax.clabel(CS, fontsize=9, inline=True)
+
         # make it nice
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         # add subtitle
         if len(subtitle) < c:
             ax.set_title("Fig. " + ascii_lowercase[c - 1])
@@ -142,7 +166,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-             x_label="Temperature[K]", y_label="CD values[mdeg]", title="", subtitle=[],
+             x_label="Temperature[°C]", y_label="CD values[mdeg]", title="", subtitle=[],
              y_scaling=False, baseline=False
              ):
     """Plots simple graph of DataFrames
@@ -182,7 +206,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
     # iterate through df in args and plot the rows
     for i in df:
-        ax = fig.add_subplot(1,len(df), c)  # create subplot
+        ax = fig.add_subplot(1, len(df), c)  # create subplot
 
         if swap:
             i = i.T
@@ -201,7 +225,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
+            ax.plot(x, y, linestyle='-', marker='', color=colors[k % 10],
                     linewidth=1
                     )
             k = k + 1
@@ -213,10 +237,6 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         if baseline is True:
             # plots line into graph
             ax.plot([x_min, x_max], [0, 0], color='k', linestyle=':', linewidth=1)
-
-        # plots line into graph
-        if baseline is not None:
-            ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
 
         # make it nice
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
@@ -244,32 +264,49 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
     )
 
 
-def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=False,
-              x_label="Temperature[K]", y_label="CD values[mdeg]", title="", subtitle=[],
-              marker=[], linestyle=[], label=None,
-              y_scaling=False, baseline=False
+def mult_func(rows, *probes, error={}, swap=False,
+              x_label="Temperature[°C]", y_label="CD values[mdeg]", title="", subtitle=[],
+              backgroundcolor="white", marker=[], linestyle=[], label=None,
+              y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[]
               ):
-    """Plots simple graph of DataFrames
+    """Plots one or multiple graphs of DataFrames or CData-Objects.
 
-    This function plots several CD values for each selected Temperature Column
-    'r'
+    This function plots for each value in 'rows' a graph from each object in 'probes'.
+    Thereby it creates for each list a new subplot and puts all elements of one list into it.
+    List parameter like 'y_min' should contain one value for each subplot.
 
     Parameters:
     ----------
-        *probes: Tuple or List of cdata.CData objects
-            data for plot
-        rows: list
+        rows: list of index-values
             rows of DataFrames which should be plotted
-        x_min, x_max, y_min, y_max: int
-            min and max columns index which should be plotted
+        *probes: Tuple or List of cdata.CData objects or DataFrames
+            list containing data for one subplot
+        error: dictionary of graph-error couple
+            error vales for graphs, Default: empty
         swap: boolean
-            whether to change axes
-        x_label, y_label,titel: string
-            description for plot
-        y_scaling: list with two values
-            gives min. and max. point on y-axis
+            parameter determining whether to change axes, Default: True
+        x_label, y_label,title: string
+            description for plot, Default: "Temperatue [°C]", "CD values [mdeg]", ""
         subtitle: list of strings
-            title for each figure
+            title for each subplot, Default" empty
+        backgroundcolor: string-code
+             backgroundcolor for plot, Default: "white"
+        marker: list of string-code
+            marker-style for each subplot, Default: empty
+        linestyle: list of string-code
+            line-style for each subplot, Default: empty
+        label: None or list of string
+            possible label names, only one possibility for all subplots, Default: empty
+        y_scaling: boolean
+            parameter determining whether to scale y-axis, Default: False
+        y_min, y_max: list of int
+            min and max value of data on y-axis for each subplot, Default: empty
+        baseline: boolean
+            parameter determining whethter to add baseline, Default: False
+        x_min, x_max: int
+             min and max value for baseline, Default: empty
+        vertical_line: list of float or in
+            values where to add vertical lines, labeld as "melting temperature", Default: empty
 
     Returns:
     -------
@@ -280,30 +317,29 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
     To-Do:  defining line-style,
     """
     # create color list and color variables
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-              'tab:olive', 'tab:cyan']
-
-    # define function style for this plot
+    #colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+    #          'tab:olive', 'tab:cyan']
+    colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']
 
     c = 1  # control variable
 
     plt.ion()  # needed for jupyter
-    fig = plt.figure()  # create figure
+    fig = plt.figure(facecolor=backgroundcolor)  # create figure
 
     # iterate through all lists for each subfigure
     for subs in probes:
         # create subplot and array
-        if len(probes) < 5:
+        if len(probes) < 4:
             width = len(probes)
         else:
-            width = 4
+            width = 3
 
-        ax = fig.add_subplot((len(probes) // width)+1, width, c)  # create subplot
+        ax = fig.add_subplot((len(probes) // 3)+1, width, c)  # create subplot
         # iterate through all data to b plotted into one subfigure
         for i in subs:
             # check instance
             if not isinstance(i, pd.core.frame.DataFrame):
-                df = i.t_df
+                df = i.cd_df
             else:
                 df = i
 
@@ -311,7 +347,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
             if swap:
                 df = df.T
             
-             # get min, max values if not given
+            # get min, max values if not given
             if x_min is None:
                 x_min = df.columns[0]
             if x_max is None:
@@ -331,40 +367,54 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
                 if len(linestyle) <= k:
                     linestyle.append('-')
 
-                x = list(df.loc[:, x_min:x_max].columns)  # get x-values
+                x = np.array(df.loc[:, x_min:x_max].columns)  # get x-values
                 y = pd.DataFrame.to_numpy(df.loc[r, x_min:x_max])  # get y-values
+                x = x[~(pd.isna(y))]          # remove NaN values
+                y = y[~(pd.isna(y))]
+
                 ax.plot(x, y, linestyle=linestyle[k], marker=marker[k],
-                        color=colors[k % 10],
-                        linewidth=1.5
+                        color=colors[k % 10], linewidth=1.5, label=r
                         )
+
+                # plot errorbar if given
+                if r in error.keys():
+                    yerr = error[r]
+                    ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
+                    # also create fill
+                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
                 k = k + 1
+
+        if len(vertical_line) >= c:
+            ax.axvline(x=vertical_line[c-1], color='tab:red', linestyle='--', linewidth=2,
+                       label='melting Temp')
 
         # scaling
         if y_scaling is True:
-            ax.set_ylim([y_min, y_max])  # Y-axis scaling
+            ax.set_ylim([y_min[c-1], y_max[c-1]])  # Y-axis scaling
 
         # baseline
         if baseline is True:
             ax.plot([x_min, x_max], [0, 0], color='k', linestyle=':', linewidth=1)
 
         # make it nice
-        ax.set_xlabel(x_label)  # Add an x-label to the axes.
-        ax.set_ylabel(y_label)  # Add a y-label to the axes.
+        ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
+        ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
 
         if label is None:  # add legend
-            label = rows
-        ax.legend(label)
+            ax.legend(fontsize=16)
+        else:
+            ax.legend(label, fontsize=16)
 
         # add subtitle
-        if len(subtitle) < (c - 1):
+        if len(subtitle) < c:
             ax.set_title("Fig. " + ascii_lowercase[c - 1])
         else:
-            ax.set_title(subtitle[c - 1], fontsize=5)
+            ax.set_title(subtitle[c - 1])
         c = c + 1
 
     # Title option
     fig.suptitle(title, fontsize=16)
-    plt.tight_layout(pad=0.1, w_pad=0.1, h_pad=0.1)
+    plt.tight_layout()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
@@ -375,7 +425,7 @@ def mult_func(rows, *probes, x_min=None, x_max=None, y_min=[], y_max=[], swap=Fa
 
 
 def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
-              x_label="Wavelength[nm]", y_label="CD values[mdeg]", title="", subtitle=[],
+              x_label="Wavelength[nm]", y_label="CD values[°C]", title="", subtitle=[],
               y_scaling=None, baseline=None,
               line1=None, line2=None, line3=None, line4=None, line5=None
               ):
@@ -488,32 +538,61 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
     )
 
 
-def function3d(*df, x_min=None, x_max=None):
+def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_label="Temperature [°C]",
+               z_label="CD Value [mdeg]"):
     """Plots 3d function.
      In progress.
      """
+    if not isinstance(data, pd.core.frame.DataFrame):
+        df = data.cd_df
+    else:
+        df = data
 
     plt.ion()
-    fig = plt.figure()  # create figure
-    c = 1  # control variable
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
-    for i in df:
-        ax = fig.add_subplot(111, projection='3d')
+    # Make data.
+    y, x = np.meshgrid(df.columns.astype(float), df.index)
+    z = df.values
 
-        if x_min is None:
-            x_min = list(i.index)[0]
-        if x_max is None:
-            x_max = list(i.index)[-1]
-        x = list(df.loc[x_min:x_max].index)
+    """# Normalize to [0,1]
+    norm = plt.Normalize(z.min(), z.max())
+    colors = cm.jet(norm(z))
+    rcount, ccount, _ = colors.shape
 
-        col2 = i.columns[-1]
-        col1 = i.columns[0]
-        y = i.loc[x_min:x_max, [col2]].to_numpy()  # get y-values
-        z = i.loc[x_min:x_max, [col1]].to_numpy()  # get z-vaalues
-        y, z = y.flatten(), z.flatten()
-        ax.plot(x, y, z, label='parametric curve')
-        ax.legend()
-        c = c + 1
+    # plot wireframe
+    surf = ax.plot_surface(x, y, z, rcount=rcount, ccount=ccount,
+                           facecolors=colors, shade=False)
+    surf.set_facecolor((0, 0, 0, 0))"""
+
+    # Plot the surface.
+    surf = ax.plot_surface(x, y, z, rstride=1, cstride=1, shade=True, cmap="jet", linewidth=0.1)
+    surf.set_edgecolors(surf.to_rgba(surf._A))
+
+    # Add a color bar which maps values to colors.
+    fig.colorbar(surf, shrink=0.5, aspect=5)
+
+    # optional: delete background
+    """fig.set_facecolor('white')
+    ax.set_facecolor('white')
+    ax.grid(False)
+    ax.w_xaxis.pane.fill = False
+    ax.w_yaxis.pane.fill = False
+    ax.w_zaxis.pane.fill = False"""
+
+    # make it nice
+    ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
+    ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
+    ax.set_zlabel(z_label, fontsize=16)  # Add a z-label to the axes.
+
+    if label is None:  # add legend
+        ax.legend(fontsize=16)
+    else:
+        ax.legend(label, fontsize=16)
+
+    # Title option
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
