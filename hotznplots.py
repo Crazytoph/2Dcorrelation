@@ -32,7 +32,9 @@ Functions:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import ipywidgets as widgets
+from mpl_toolkits.mplot3d import art3d
 from mpl_toolkits.mplot3d import axes3d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import cm
@@ -42,7 +44,7 @@ from string import ascii_lowercase
 
 def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             c_min=[], c_max=[], x_label="temperature[°C]",
-            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines="True"
+            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines=True
             ):
     """Plots heatmap.
        This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
@@ -105,7 +107,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         if len(data) < 4:
             width = len(data)
         else:
-            width = 3
+            width = 2
         ax = fig.add_subplot((len(data) // 3) + 1, width, c)
         arr = pd.DataFrame.to_numpy(df.loc[x_min[c-1]:x_max[c-1], y_min[c-1]:y_max[c-1]])
 
@@ -124,7 +126,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             c_max.append(arr.max())
 
         # here happens the 'real' plot with all settings
-        im = ax.imshow(arr, aspect='auto', cmap='brg',
+        im = ax.imshow(arr, aspect='auto', cmap='jet',
                        vmax=c_max[c-1], vmin=c_min[c-1], interpolation='bicubic',
                        extent=extent, origin="lower")
 
@@ -204,7 +206,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
     # iterate through df in args and plot the rows
     for i in df:
-        ax = fig.add_subplot(1,len(df), c)  # create subplot
+        ax = fig.add_subplot(1, len(df), c)  # create subplot
 
         if swap:
             i = i.T
@@ -223,7 +225,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         for r in rows:
             x = list(i.loc[:, x_min:x_max].columns)  # get x-values
             y = pd.DataFrame.to_numpy(i.loc[r, x_min:x_max])  # get y-values
-            ax.plot(x, y, linestyle='-', marker='x', color=colors[k % 10],
+            ax.plot(x, y, linestyle='-', marker='', color=colors[k % 10],
                     linewidth=1
                     )
             k = k + 1
@@ -235,10 +237,6 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
         if baseline is True:
             # plots line into graph
             ax.plot([x_min, x_max], [0, 0], color='k', linestyle=':', linewidth=1)
-
-        # plots line into graph
-        if baseline is not None:
-            ax.plot([20, 90], [0, 0], color='k', linestyle='-', linewidth=1)
 
         # make it nice
         ax.set_xlabel(x_label)  # Add an x-label to the axes.
@@ -319,10 +317,9 @@ def mult_func(rows, *probes, error={}, swap=False,
     To-Do:  defining line-style,
     """
     # create color list and color variables
-    colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-              'tab:olive', 'tab:cyan']
-
-    # define function style for this plot
+    #colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+    #          'tab:olive', 'tab:cyan']
+    colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']
 
     c = 1  # control variable
 
@@ -382,9 +379,9 @@ def mult_func(rows, *probes, error={}, swap=False,
                 # plot errorbar if given
                 if r in error.keys():
                     yerr = error[r]
-                    ax.errorbar(x, y, yerr=yerr, color=colors[k % 10])
+                    ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
                     # also create fill
-                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2)
+                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
                 k = k + 1
 
         if len(vertical_line) >= c:
@@ -393,7 +390,7 @@ def mult_func(rows, *probes, error={}, swap=False,
 
         # scaling
         if y_scaling is True:
-            ax.set_ylim([y_min[c], y_max[c]])  # Y-axis scaling
+            ax.set_ylim([y_min[c-1], y_max[c-1]])  # Y-axis scaling
 
         # baseline
         if baseline is True:
@@ -541,7 +538,8 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
     )
 
 
-def function3d(data):
+def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_label="Temperature [°C]",
+               z_label="CD Value [mdeg]"):
     """Plots 3d function.
      In progress.
      """
@@ -557,12 +555,43 @@ def function3d(data):
     y, x = np.meshgrid(df.columns.astype(float), df.index)
     z = df.values
 
+    """# Normalize to [0,1]
+    norm = plt.Normalize(z.min(), z.max())
+    colors = cm.jet(norm(z))
+    rcount, ccount, _ = colors.shape
+
+    # plot wireframe
+    surf = ax.plot_surface(x, y, z, rcount=rcount, ccount=ccount,
+                           facecolors=colors, shade=False)
+    surf.set_facecolor((0, 0, 0, 0))"""
+
     # Plot the surface.
-    surf = ax.plot_surface(x, y, z, cmap='brg',
-                           linewidth=0)
+    surf = ax.plot_surface(x, y, z, rstride=1, cstride=1, shade=True, cmap="jet", linewidth=0.1)
+    surf.set_edgecolors(surf.to_rgba(surf._A))
+
     # Add a color bar which maps values to colors.
     fig.colorbar(surf, shrink=0.5, aspect=5)
 
+    # optional: delete background
+    """fig.set_facecolor('white')
+    ax.set_facecolor('white')
+    ax.grid(False)
+    ax.w_xaxis.pane.fill = False
+    ax.w_yaxis.pane.fill = False
+    ax.w_zaxis.pane.fill = False"""
+
+    # make it nice
+    ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
+    ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
+    ax.set_zlabel(z_label, fontsize=16)  # Add a z-label to the axes.
+
+    if label is None:  # add legend
+        ax.legend(fontsize=16)
+    else:
+        ax.legend(label, fontsize=16)
+
+    # Title option
+    fig.suptitle(title, fontsize=16)
     plt.tight_layout()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
