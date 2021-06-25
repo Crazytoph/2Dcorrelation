@@ -107,7 +107,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         if len(data) < 4:
             width = len(data)
         else:
-            width = 3
+            width = 2
         ax = fig.add_subplot((len(data) // 3) + 1, width, c)
         arr = pd.DataFrame.to_numpy(df.loc[x_min[c-1]:x_max[c-1], y_min[c-1]:y_max[c-1]])
 

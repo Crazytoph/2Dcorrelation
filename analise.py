@@ -171,6 +171,31 @@ def normalize(arr, axis=1):
     return norm_arr
 
 
+def vector_norm(arr, axis=1):
+    """Performs vector normalization."""
+    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+
+    # get norm
+    norm = np.linalg.norm(arr, axis=axis)
+
+    if axis == 1:
+        norm_arr = arr/norm.reshape(-1, 1)
+    else:
+        norm_arr = arr/norm
+
+    # reformat if necessary
+    if df:
+        norm_arr = pd.DataFrame(norm_arr, index=idx, columns=col)
+
+    return norm_arr
+
+
 def auto_scaling(arr, axis=1):
     """Performs Auto-scaling on data, also called Pearson scaling.
     Performs pareto-scaling according to [1]_ ,
@@ -233,54 +258,12 @@ def pareto_scaling(arr, axis=1):
      Centering, scaling, and transformations: Improving the biological information content of metabolomics data.
      BMC Genomics, 7. https://doi.org/10.1186/1471-2164-7-142
     """
-    # get column and index names and convert to array
-    col = df.columns
-    idx = df.index
-    arr = df.to_numpy()
-
-    # perform pareto scaling
-    std = weighted_std(df)
-    pareto = arr / np.sqrt(np.reshape(std, (len(std), 1)))
-    # reformat
-    pareto = pd.DataFrame(pareto, index=idx, columns=col)
-
-    return pareto
-
-
-def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
-    """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
-
-     Method is based on [1]_
-
-     Parameters:
-     ----------
-        data_df: DataFrame or numpy array
-            original data
-        rows: list of integer
-            rows to be used for projection
-        alpha: integer
-            proportion of projection into new matrix
-        positive_projection: boolean
-            parameter determining whether a positive projection should be done
-
-    Note:
-    ----
-        positive projection only works with single rows
-
-    References:
-    ----------
-        ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
-         974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
-
-    Return:
-    ------
-        projection_mat: DataFrame
-            projection matrix
-     """
     df = False
-    # check if 'data_df' is DataFrame
-    if not isinstance(data_df, np.ndarray):
+    if not isinstance(arr, np.ndarray):
         df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
 
     # perform pareto scaling
     avg = arr.mean(axis=axis)  # mean
@@ -290,32 +273,12 @@ def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
     if axis == 1:
         pareto = (arr - np.reshape(avg, (len(avg), 1))) / np.sqrt(np.reshape(std, (len(std), 1)))
 
+    # reformat if necessary
+    if df:
+        pareto = pd.DataFrame(pareto, index=idx, columns=col)
 
-        # prepare 'response_val' and 'data' as numpy arrays
-        response_val = data_df.loc[rows[0]:rows[-1]].T
-        response_val = response_val.to_numpy()
-        data = data_df.T.to_numpy()
-    else:
-        response_val = data_df[rows[0]:(rows[-1] + 1)].T
-        data = data_df.T
+    return pareto
 
-    if positive_projection is False:
-        # get projection matrix and residual-maker-matrix('residual_mat')'
-        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
-        projection_mat = np.dot(eigenvector, eigenvector.T)
-        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
-
-        # mix both according to proportion-factor
-        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
-    else:
-        # norm vector and calculate loading vector
-        normed_vec = response_val / np.linalg.norm(response_val)
-        loading_vector = np.dot(data.T, normed_vec)
-
-        # change all negative values to zero
-        for i in range(loading_vector.shape[0]):
-            if loading_vector[i] <= 0:
-                loading_vector[i] = 0
 
 def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
     """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
@@ -430,8 +393,8 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
         dyn2 = centering(exp2.loc[:, col])
     else:
         # from reference spectrum
-        dyn1 = exp1.loc[:, col].subtract(ref_spec, axis=0)
-        dyn2 = exp2.loc[:, col].subtract(ref_spec, axis=0)
+        dyn1 = exp1.loc[:, col].subtract(ref_spec[0], axis=0)
+        dyn2 = exp2.loc[:, col].subtract(ref_spec[-1], axis=0)
 
         # extra centering if wanted
         if center is True:
@@ -441,14 +404,10 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     # perform scaling if wanted
     if scaling == 'pareto':
         dyn1 = pareto_scaling(dyn1)
-        dyn2 = pareto_scaling(dyn1)
+        dyn2 = pareto_scaling(dyn2)
     if scaling == 'auto':
         dyn1 = auto_scaling(dyn1)
         dyn2 = auto_scaling(dyn2)
-
-    # transform to numpy array
-    dyn1 = dyn1.to_numpy()
-    dyn2 = dyn2.to_numpy()
 
     # perform projection if wanted
     if projection is True:
@@ -457,22 +416,37 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
         dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
         dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
 
+    # transform to numpy array
+    dyn1 = dyn1.to_numpy()
+    dyn2 = dyn2.to_numpy()
+
+    # get column and row numbers, create disrel_spec
+    rows, cols = dyn1.shape
+    disrel_spec = np.zeros((rows, rows))
+
     # creating Hilbert-Noda-matrix for async spectrum
-    arr = np.arange(1, rows + 1)
-    h_n_m = arr - np.array([arr]).T + np.identity(rows)
+    arr = np.arange(1, cols + 1)
+    h_n_m = arr - np.array([arr]).T + np.identity(cols)
     h_n_m = 1 / (np.pi * h_n_m)
     h_n_m = (h_n_m - h_n_m.T) / 2
     h_n_m = h_n_m[..., :cols]
     
     # calculate synchronous and asynchronous spectrum with matrix
-    sync_spec = np.dot(dyn1, dyn2.T) / (cols  - 1)
-    async_spec = np.dot(dyn1, np.dot(hilbert_noda, dyn2.T)) / (cols - 1)
+    sync_spec = np.dot(dyn1, dyn2.T) / (cols - 1)
+    async_spec = np.dot(dyn1, np.dot(h_n_m, dyn2.T)) / (cols - 1)
+
+    # disrelation spectra
+    #for i in range(rows):
+       # for j in range(rows):
+           # kappa = np.sign(np.sum(dyn1[i, :-1] * dyn2[j, 1:] - dyn1[i, 1:] * dyn2[j, :-1]))
+            #disrel_spec[i, j] = kappa * np.sqrt(sync_spec[i, i] * sync_spec[j, j] - sync_spec[i, j] * sync_spec[j,i])
 
     # return spectra as DataFrame
     sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx, dtype=float)
     async_spec = pd.DataFrame(async_spec, index=idx, columns=idx, dtype=float)
+    #disrel_spec = pd.DataFrame(disrel_spec, index=idx, columns=idx, dtype=float)
 
-    return sync_spec, async_spec
+    return sync_spec, async_spec, #disrel_spec
 
 
 def max_wave(df, wave_min=None, wave_max=None):
