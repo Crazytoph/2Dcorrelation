@@ -6,8 +6,14 @@ Functions:
 ---------
     centering(arr, axis):
         centers data around axis
+    normalize(arr, axis=1):
+        normalize data from 0 to 1
+    projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+        creates mixture of projection and residue matrix of certain rows
+    auto_scaling(arr, axis=1):
+        scales data by the standard deviation along axis
     pareto_scaling(arr,axis):
-        scales data around axis
+        scales data by the root of the standard deviation along axis
     correlation(*exp, ref):
         performs 2D correlation analysis on 'circ_data'
     max_wave(df, wave_min, wave_max):
@@ -33,43 +39,101 @@ from scipy.optimize import curve_fit
 import lmfit
 
 
-
-def centering(arr, axis=1):
+def centering(arr):
     """Centers data by subtracting the average.
 
     Centering given data by subtracting the average of respectively each
-    column('axis'=0) or each row('axis'=1).
+    column.
 
     Parameter:
     ---------
     arr: numpy array or dataframe
-    axis: int
-        can be 0 for column or 1 for row
+
     Return:
     ------
     center: like dtype of arr
         centered data
     """
-    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
-    df = False
-    if not isinstance(arr, np.ndarray):
-        df = True
-        col = arr.columns
-        idx = arr.index
-        arr = arr.to_numpy()
-
     # center
-    avg = arr.mean(axis=axis)
-    if axis == 0:
-        center = arr - np.reshape(avg, (1, len(avg)))
-    else:
-        center = arr - np.reshape(avg, (len(avg), 1))
-
-    # reformat if necessary
-    if df:
-        center = pd.DataFrame(center, index=idx, columns=col)
+    avg = weighted_mean(arr)
+    center = arr - avg
 
     return center
+
+
+def weighted_mean(df):
+    """ Calculates the weighted mean of unevenly-spaced data.
+
+    Based on:
+    Noda, I. and Y.Ozaki.
+    “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
+    Chapter: "Practical Computation of 2D Correlation Spectra"
+
+     Parameter:
+        ---------
+        df: original DataFrame
+
+        Return:
+        ------
+        mean: numpy array
+            vector with mean value per row
+    """
+    # get col, idx and convert to numpy
+    col = df.columns
+    idx = df.index
+    arr = df.to_numpy()
+
+    # get Temperature as List ad T_0 and T_(M+1)
+    temp_list = list(col)
+    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+
+    # calculate mean
+    norm = 0
+    mean = np.zeros((idx.size, 1))
+    for i in range(col.size):
+        mean = mean + arr[:, i, None] * (temp_list[i + 2] - temp_list[i])
+        norm = norm + (temp_list[i + 2] - temp_list[i])
+    mean = mean / norm
+    return mean
+
+
+def weighted_std(df):
+    """ Calculates the weighted mean of unevenly-spaced data.
+
+        Based on:
+        Noda, I. and Y.Ozaki.
+        “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
+        Chapter: "Practical Computation of 2D Correlation Spectra"
+
+        and "https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance" (11.05.2021)
+
+         Parameter:
+            ---------
+            df: original DataFrame
+
+            Return:
+            ------
+            std: numpy array
+                vector with standard deviation of each row
+        """
+    # get col, idx and convert to numpy
+    col = df.columns
+    idx = df.index
+    mean = weighted_mean(df)
+    arr = df.to_numpy()
+
+    # get Temperature as List ad T_0 and T_(M+1)
+    temp_list = list(col)
+    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+
+    # calculate std
+    norm = 0
+    std = np.zeros((idx.size, 1))
+    for i in range(col.size):
+        std = std + (arr[:, i, None] - mean) ** 2 * (temp_list[i + 2] - temp_list[i])
+        norm = norm + (temp_list[i + 2] - temp_list[i])
+
+    return std / norm
 
 
 def normalize(arr, axis=1):
@@ -107,31 +171,49 @@ def normalize(arr, axis=1):
     return norm_arr
 
 
-def pareto_scaling(arr, axis=1):
-    """Performs Pareto-scaling on data.
+def vector_norm(arr, axis=1):
+    """Performs vector normalization."""
+    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
 
+    # get norm
+    norm = np.linalg.norm(arr, axis=axis)
+
+    if axis == 1:
+        norm_arr = arr/norm.reshape(-1, 1)
+    else:
+        norm_arr = arr/norm
+
+    # reformat if necessary
+    if df:
+        norm_arr = pd.DataFrame(norm_arr, index=idx, columns=col)
+
+    return norm_arr
+
+
+def auto_scaling(arr, axis=1):
+    """Performs Auto-scaling on data, also called Pearson scaling.
     Performs pareto-scaling according to [1]_ ,
-
-    ..math: \tilde{x}_{ij} = \frac{x_{ij}-\bar{x_{i}}}{\sqrt{s_{i}}}
-
+    ..math: \tilde{x}_{ij} = \frac{x_{ij}}{s_{i}}
     Parameter:
     ---------
-    arr: numpy array or dataframe
-    axis: int
-        can be 0 for column or 1 for row
-
+    df: DataFrame
     Return:
     ------
-    pareto: like dtype of arr
-        scaled date
-
+    auto: like dtype of arr
+        scaled data
+        
     References:
     ----------
     ..[1] van den Berg, R. A., Hoefsloot, H. C. J., Westerhuis, J. A., Smilde, A. K., & van der Werf, M. J. (2006).
      Centering, scaling, and transformations: Improving the biological information content of metabolomics data.
      BMC Genomics, 7. https://doi.org/10.1186/1471-2164-7-142
     """
-    # check for type 'np.ndarray', if not expect 'pd.DataFrame' and convert respectively
     df = False
     if not isinstance(arr, np.ndarray):
         df = True
@@ -141,7 +223,51 @@ def pareto_scaling(arr, axis=1):
 
     # perform pareto scaling
     avg = arr.mean(axis=axis)  # mean
-    std = arr.std(axis=axis)  # standard deviation
+    std = arr.std(axis=axis, ddof=1)  # standard deviation
+    if axis == 0:
+        auto = (arr - np.reshape(avg, (1, len(avg)))) / np.reshape(std, (1, len(std)))
+    if axis == 1:
+        auto = (arr - np.reshape(avg, (len(avg), 1))) / np.reshape(std, (len(std), 1))
+
+    # reformat if necessary
+    if df:
+        auto = pd.DataFrame(auto, index=idx, columns=col)
+        
+    return auto
+
+
+def pareto_scaling(arr, axis=1):
+    """Performs Pareto-scaling on data.
+
+    Performs pareto-scaling according to [1]_ ,
+
+    ..math: \tilde{x}_{ij} = \frac{x_{ij}}{\sqrt{s_{i}}}
+
+    Parameter:
+    ---------
+    df: DataFrame
+
+    Return:
+    ------
+    pareto: like dtype of arr
+        scaled data
+
+    References:
+    ----------
+    ..[1] van den Berg, R. A., Hoefsloot, H. C. J., Westerhuis, J. A., Smilde, A. K., & van der Werf, M. J. (2006).
+     Centering, scaling, and transformations: Improving the biological information content of metabolomics data.
+     BMC Genomics, 7. https://doi.org/10.1186/1471-2164-7-142
+    """
+    df = False
+    if not isinstance(arr, np.ndarray):
+        df = True
+        col = arr.columns
+        idx = arr.index
+        arr = arr.to_numpy()
+
+    # perform pareto scaling
+    avg = arr.mean(axis=axis)  # mean
+    std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
         pareto = (arr - np.reshape(avg, (1, len(avg)))) / np.sqrt(np.reshape(std, (1, len(std))))
     if axis == 1:
@@ -154,13 +280,84 @@ def pareto_scaling(arr, axis=1):
     return pareto
 
 
-def correlation(*exp_spec, ref_spec=None, scaling=None):
-    """ Performs 2D correlation analysis.
+def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+    """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
+     Method is based on [1]_
+     Parameters:
+     ----------
+        data_df: DataFrame or numpy array
+            original data
+        rows: list of integer
+            rows to be used for projection
+        alpha: integer
+            proportion of projection into new matrix
+        positive_projection: boolean
+            parameter determining whether a positive projection should be done
+    Note:
+    ----
+        positive projection only works with single rows
+    References:
+    ----------
+        ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
+         974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
+    Return:
+    ------
+        projection_mat: DataFrame
+            projection matrix
+     """
+    df = False
+    # check if 'data_df' is DataFrame
+    if not isinstance(data_df, np.ndarray):
+        df = True
 
+        # get col und idx names
+        col = data_df.columns
+        idx = data_df.index
+
+        # prepare 'response_val' and 'data' as numpy arrays
+        response_val = data_df.loc[rows[0]:rows[-1]].T
+        response_val = response_val.to_numpy()
+        data = data_df.T.to_numpy()
+    else:
+        response_val = data_df[rows[0]:(rows[-1] + 1)].T
+        data = data_df.T
+
+    if positive_projection is False:
+        # get projection matrix and residual-maker-matrix('residual_mat')'
+        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
+        projection_mat = np.dot(eigenvector, eigenvector.T)
+        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
+
+        # mix both according to proportion-factor
+        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
+    else:
+        # norm vector and calculate loading vector
+        normed_vec = response_val / np.linalg.norm(response_val)
+        loading_vector = np.dot(data.T, normed_vec)
+
+        # change all negative values to zero
+        for i in range(loading_vector.shape[0]):
+            if loading_vector[i] <= 0:
+                loading_vector[i] = 0
+
+        # calculated positive projected data
+        projected_data_plus = np.dot(normed_vec, loading_vector.T)
+        # and mix it
+        mixed_projected_data = data - (1 - alpha) * projected_data_plus
+
+    # change back to DataFrame
+    if df is True:
+        mixed_projected_data = pd.DataFrame(mixed_projected_data, index=idx, columns=col)
+
+    return mixed_projected_data.T
+
+
+def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
+                projection=False, proj_positivity=True, proj_rows=None, proj_alpha=0):
+    """ Performs 2D correlation analysis.
     Calculates the Synchronous and Asynchronous 2D correlation of a given
     Spectrum according to [1]_ .
     Hereby the dynamic spectrum is taken by subtracting the average.
-
     Parameters:
     ----------
     exp_spec: DataFrames
@@ -171,46 +368,61 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
         Spectrum.
     scaling: String
         Defines type of scaling if there is no reference spectrum, can be 'pareto' or 'centering'
-
     Returns:
     -------
     sync_spec, async_spec: array_like
         The synchronous respectively asynchronous
         correlation spectrum
-
     References:
     ----------
         ..[1]: Noda, I. (2000). Determination of Two - Dimensional Correlation Spectra Using the Hilbert Transform 5 E.
          54(7), 994–999.
     """
-    # transform dataFrame to numpy
-    index = list(exp_spec[0].index)
-    exp1 = exp_spec[0].to_numpy()
-    exp2 = exp_spec[-1].to_numpy()
+    # getting index and shared column values
+    idx = exp_spec[0].index
+    col = pd.concat(exp_spec, join='inner').columns
 
-    # create dynamic spectrum
+    # get single spectra
+    exp1 = exp_spec[0]
+    exp2 = exp_spec[-1]
+
+    # create dynamic spectrum from average or reference
     if ref_spec is None:
-        dyn1 = centering(exp1)
-        dyn2 = centering(exp2)
+        # from average spectrum
+        dyn1 = centering(exp1.loc[:, col])
+        dyn2 = centering(exp2.loc[:, col])
     else:
-        ref_spec1 = ref_spec.loc[:, list(exp_spec[0].columns)].to_numpy()
-        ref_spec2 = ref_spec.loc[:, list(exp_spec[-1].columns)].to_numpy()
-        dyn1 = exp1 - ref_spec1
-        dyn2 = exp2 - ref_spec2
+        # from reference spectrum
+        dyn1 = exp1.loc[:, col].subtract(ref_spec[0], axis=0)
+        dyn2 = exp2.loc[:, col].subtract(ref_spec[-1], axis=0)
+
+        # extra centering if wanted
+        if center is True:
+            dyn1 = centering(dyn1)
+            dyn2 = centering(dyn2)
 
     # perform scaling if wanted
     if scaling == 'pareto':
-        dyn1 = pareto_scaling(exp1)
-        dyn2 = pareto_scaling(exp2)
+        dyn1 = pareto_scaling(dyn1)
+        dyn2 = pareto_scaling(dyn2)
+    if scaling == 'auto':
+        dyn1 = auto_scaling(dyn1)
+        dyn2 = auto_scaling(dyn2)
 
-    # getting number of rows and columns
-    rows = dyn1.shape[0]
-    cols = dyn1.shape[1]
+    # perform projection if wanted
+    if projection is True:
+        proj_rows[0] = proj_rows[0] - 200
+        proj_rows[-1] = proj_rows[-1] - 200
+        dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
+        dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
 
-    # creating 2d arrays for sync and async spectra
-    size = (rows, rows)
-    sync_spec = np.zeros(size)
-    async_spec = np.zeros(size)
+    # transform to numpy array
+    dyn1 = dyn1.to_numpy()
+    dyn2 = dyn2.to_numpy()
+
+    # get column and row numbers, create disrel_spec
+    rows, cols = dyn1.shape
+    disrel_spec = np.zeros((rows, rows))
 
     # creating Hilbert-Noda-matrix for async spectrum
     arr = np.arange(1, cols + 1)
@@ -218,18 +430,23 @@ def correlation(*exp_spec, ref_spec=None, scaling=None):
     h_n_m = 1 / (np.pi * h_n_m)
     h_n_m = (h_n_m - h_n_m.T) / 2
     h_n_m = h_n_m[..., :cols]
+    
+    # calculate synchronous and asynchronous spectrum with matrix
+    sync_spec = np.dot(dyn1, dyn2.T) / (cols - 1)
+    async_spec = np.dot(dyn1, np.dot(h_n_m, dyn2.T)) / (cols - 1)
 
-    # calculating sync and async values for each row and column
-    for i in range(rows):
-        for k in range(rows):
-            a, b, c = np.array([dyn1[i]]), np.array([dyn2[k]]).T, (cols - 1)
-            sync_spec[i, k] = np.sum(np.dot(a, b)) / c
-            async_spec[i, k] = np.sum(np.dot(a, np.dot(h_n_m, b))) / c
+    # disrelation spectra
+    #for i in range(rows):
+       # for j in range(rows):
+           # kappa = np.sign(np.sum(dyn1[i, :-1] * dyn2[j, 1:] - dyn1[i, 1:] * dyn2[j, :-1]))
+            #disrel_spec[i, j] = kappa * np.sqrt(sync_spec[i, i] * sync_spec[j, j] - sync_spec[i, j] * sync_spec[j,i])
 
     # return spectra as DataFrame
-    sync_spec = pd.DataFrame(sync_spec, index=index, columns=index)
-    async_spec = pd.DataFrame(async_spec, index=index, columns=index)
-    return sync_spec, async_spec
+    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx, dtype=float)
+    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx, dtype=float)
+    #disrel_spec = pd.DataFrame(disrel_spec, index=idx, columns=idx, dtype=float)
+
+    return sync_spec, async_spec, #disrel_spec
 
 
 def max_wave(df, wave_min=None, wave_max=None):
@@ -411,29 +628,6 @@ def sigmoid_fit(df, wave=247, a_range=[0, 0.3], b_range=[50, 70]):
 
 # functions based on origin documentation
 # https://www.originlab.com/doc/Origin-Help/Curve-Fitting-Function#Growth.2FSigmoidal
-def log(x, a=1, y0=0, x_c=63, p=0.3):
-    """Logistic dose response in Pharmacology/Chemistry.
-
-    Parameter:
-    ---------
-        x: float
-            variable
-        a: float
-            amplitude
-        y0: float
-            lowest value
-        x_c: float
-            center of sigmoid
-        p: float
-            power, p > 0.0
-    Return:
-    ------
-        f: array of floats
-            function value on x
-    """
-    f = (a - y0) / (1 + ((x/x_c) ** p)) + y0
-    return f
-
 
 def s1(x, a=1, y0=0, k=0.3, xc=63):
     """Sigmoidal Logistic function, type 1.
@@ -454,13 +648,13 @@ def s1(x, a=1, y0=0, k=0.3, xc=63):
         f: arry of floats
             fuction value on 'x'
     """
-    f = (a / (1 + np.exp(-k*(x - xc)))) + y0
+    f = (a / (1 + np.exp(-k * (x - xc)))) + y0
     return f
 
 
 def linear(x, m=1, y0=0):
     """linear function"""
-    f = m*x + y0
+    f = m * x + y0
     return f
 
 
@@ -473,8 +667,6 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     data.index = data.index.astype(float)
 
     # get model chosen by 'function'
-    if f_type == 'log':
-        model = lmfit.Model(log)
     if f_type == 's1':
         model = lmfit.Model(s1)
     if f_type == 'linear':
@@ -492,8 +684,8 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     print(result.fit_report())
 
     # get confidence report and stuff
-    #result.conf_interval()
-    #print(result.ci_report())
+    # result.conf_interval()
+    # print(result.ci_report())
 
     # prepare DataFrame for return
     fit_data = pd.DataFrame(x, index=x, columns=["wavelength"])
@@ -503,4 +695,4 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     fit_data["error"] = result.eval_uncertainty()
     fit_data["residual"] = result.residual
 
-    return fit_data, result.params.valuesdict()
+    return fit_data, result.params.valuesdict(), result.params['xc'].stderr
