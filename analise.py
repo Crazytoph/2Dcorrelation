@@ -352,6 +352,34 @@ def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
     return mixed_projected_data.T
 
 
+def perturbation_moving_window(data_df, window_size=3):
+    """Calculates synchronous and asynchronous perturbation-correlation moving-window
+    correlation spectra. 
+    
+    Parameters:
+    ----------
+        data_df: DataFrame
+            original Data
+        window_size: int
+            window_size, must be uneven!
+    
+    Return:
+    ------
+        sync, assync: DataFrames
+            Synchronous and Assynchronous Spectra
+
+    Reference:
+    ---------
+        Noda, I. (2018). Advances in Two-Dimensional Correlation Spectroscopy (2DCOS).
+        In Frontiers and Advances in Molecular Spectroscopy. Elsevier Inc.
+        https://doi.org/10.1016/B978-0-12-811220-5.00002-2
+    """
+    j = (window_size - 1) / 2
+    col = list(data_df.columns)
+    for col in data_df.columns:w
+
+
+
 def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
                 projection=False, proj_positivity=True, proj_rows=None, proj_alpha=0):
     """ Performs 2D correlation analysis.
