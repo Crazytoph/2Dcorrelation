@@ -39,7 +39,7 @@ from scipy.optimize import curve_fit
 import lmfit
 
 
-def centering(arr):
+def centering(df):
     """Centers data by subtracting the average.
 
     Centering given data by subtracting the average of respectively each
@@ -47,7 +47,7 @@ def centering(arr):
 
     Parameter:
     ---------
-    arr: numpy array or dataframe
+    df: Dataframe
 
     Return:
     ------
@@ -55,8 +55,8 @@ def centering(arr):
         centered data
     """
     # center
-    avg = weighted_mean(arr)
-    center = arr - avg
+    avg = weighted_mean(df)
+    center = df - avg
 
     return center
 
@@ -280,76 +280,64 @@ def pareto_scaling(arr, axis=1):
     return pareto
 
 
-def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+def projection_matrix(data_df, row_min_max, positive_projection_trick=True, center=True):
     """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
      Method is based on [1]_
      Parameters:
      ----------
-        data_df: DataFrame or numpy array
+        data_df: DataFrame
             original data
-        rows: list of integer
-            rows to be used for projection
-        alpha: integer
-            proportion of projection into new matrix
+        row_min_max: list of min and max row
+            rows to be used for projection vector
         positive_projection: boolean
-            parameter determining whether a positive projection should be done
-    Note:
-    ----
-        positive projection only works with single rows
+            parameter determining whether a positive projection trick should be done
+        center: boolean
+            whether dynamic spectrum must be created
+
     References:
     ----------
         ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
          974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
     Return:
     ------
-        projection_mat: DataFrame
-            projection matrix
+        null_space_proj: DataFrame
+            null_space_projection matrix
      """
-    df = False
-    # check if 'data_df' is DataFrame
-    if not isinstance(data_df, np.ndarray):
-        df = True
-
-        # get col und idx names
-        col = data_df.columns
-        idx = data_df.index
-
-        # prepare 'response_val' and 'data' as numpy arrays
-        response_val = data_df.loc[rows[0]:rows[-1]].T
-        response_val = response_val.to_numpy()
-        data = data_df.T.to_numpy()
+    # centering if wanted, arr
+    if center:
+        df = centering(data_df)
     else:
-        response_val = data_df[rows[0]:(rows[-1] + 1)].T
-        data = data_df.T
+        df = data_df
+    arr = df.T.to_numpy()
+    row_len = 1     # number of rows for reshaping vector, default = 1
 
-    if positive_projection is False:
-        # get projection matrix and residual-maker-matrix('residual_mat')'
-        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
-        projection_mat = np.dot(eigenvector, eigenvector.T)
-        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
+    # positive projection trick only for vector
+    if row_min_max[0] != row_min_max[-1]:
+        positive_projection_trick = False
+        row_len = row_min_max[-1] - row_min_max[0] + 1
 
-        # mix both according to proportion-factor
-        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
-    else:
-        # norm vector and calculate loading vector
-        normed_vec = response_val / np.linalg.norm(response_val)
-        loading_vector = np.dot(data.T, normed_vec)
+    # define projecting vector
+    proj_vec = df.loc[row_min_max[0]:row_min_max[-1]].to_numpy().reshape(df.shape[1], row_len)
 
-        # change all negative values to zero
-        for i in range(loading_vector.shape[0]):
-            if loading_vector[i] <= 0:
-                loading_vector[i] = 0
+    # calculate projecting matrix as y (yT,y)^-1 yT A
+    proj_mat = np.matmul(proj_vec,
+                         np.matmul(
+                             np.linalg.inv(np.matmul(proj_vec.T, proj_vec)),
+                             np.matmul(proj_vec.T, arr)
+                         )
+                         )
 
-        # calculated positive projected data
-        projected_data_plus = np.dot(normed_vec, loading_vector.T)
-        # and mix it
-        mixed_projected_data = data - (1 - alpha) * projected_data_plus
+    # positive projection trick: each vector for yT a_j < 0 is set zero
+    if positive_projection_trick:
+        for i in range(proj_mat.shape[1]):
+            if np.matmul(proj_vec.T, proj_mat[:, i]) < 0:
+                proj_mat[:, i] = np.zeros(proj_mat.shape[0])
 
-    # change back to DataFrame
-    if df is True:
-        mixed_projected_data = pd.DataFrame(mixed_projected_data, index=idx, columns=col)
-
-    return mixed_projected_data.T
+    # calculate the null space projection by subtracting the projecting matrix from the dynamic spectrum
+    null_space_proj = arr - proj_mat
+    # return new spectrum as DataFrame
+    null_space_proj = pd.DataFrame(null_space_proj.T, index=df.index, columns=df.columns)
+    return null_space_proj
 
 
 def perturbation_moving_window(data_df, window_size=3):
@@ -374,14 +362,42 @@ def perturbation_moving_window(data_df, window_size=3):
         In Frontiers and Advances in Molecular Spectroscopy. Elsevier Inc.
         https://doi.org/10.1016/B978-0-12-811220-5.00002-2
     """
-    j = (window_size - 1) / 2
-    col = list(data_df.columns)
-    for col in data_df.columns:w
+    # define basic variables
+    temp_list = np.array(data_df.columns)
+    rows, cols = data_df.shape
+    m = int((window_size - 1) / 2)
+
+    # creating template matrices for synchronous and asynchronous spectra
+    sync = np.ones((rows, cols - 2 * m))
+    assync = np.ones((rows, cols - 2 * m))
+
+    # creating Hilbert-Noda-matrix for async spectrum
+    arr = np.arange(1, window_size + 1)
+    h_n_m = arr - np.array([arr]).T + np.identity(window_size)
+    h_n_m = 1 / (np.pi * h_n_m)
+    h_n_m = (h_n_m - h_n_m.T) / 2
+    h_n_m = h_n_m[..., :window_size]
+
+    # calculating spectra for each window
+    for j in range(m, len(temp_list) - m):
+        # dynamic temperature
+        temp_mean = np.sum(temp_list[j - m:j + m + 1]) / window_size
+        temp_dyn = temp_list[j - m:j + m + 1] - temp_mean
+        # dynamic spectrum
+        window_vector = data_df.loc[:, temp_list[j - m:j + m + 1]]
+        dyn_spec = centering(window_vector).to_numpy()
+        # calculating synchronous and asynchronous spectra in matrix form
+        sync[:, j - m] = np.matmul(dyn_spec, temp_dyn) / (2 * m)
+        assync[:, j - m] = np.matmul(dyn_spec, np.matmul(h_n_m, temp_dyn)) / (2 * m)
+
+    # transforming to DataFrame
+    sync = pd.DataFrame(sync, index=data_df.index, columns=temp_list[m:-m])
+    assync = pd.DataFrame(assync, index=data_df.index, columns=temp_list[m:-m])
+
+    return sync, assync
 
 
-
-def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
-                projection=False, proj_positivity=True, proj_rows=None, proj_alpha=0):
+def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
     """ Performs 2D correlation analysis.
     Calculates the Synchronous and Asynchronous 2D correlation of a given
     Spectrum according to [1]_ .
@@ -394,6 +410,9 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     ref_spec: DataFrame
         Reference Spectrum, if None Average is taken to calculate Dynamic
         Spectrum.
+    center: Boolean
+        whether centering should be done ADDITIONALLY after subtracting a reference spectrum,
+        only relevant if one is given. Default: False
     scaling: String
         Defines type of scaling if there is no reference spectrum, can be 'pareto' or 'centering'
     Returns:
@@ -414,11 +433,14 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     exp1 = exp_spec[0]
     exp2 = exp_spec[-1]
 
-    # create dynamic spectrum from average or reference
+    # create dynamic spectrum from average or reference or none if ref_spec == [0]
     if ref_spec is None:
         # from average spectrum
         dyn1 = centering(exp1.loc[:, col])
         dyn2 = centering(exp2.loc[:, col])
+    elif isinstance(ref_spec[0], pd.core.frame.DataFrame):
+        dyn1 = exp1.loc[:, col]
+        dyn2 = exp2.loc[:, col]
     else:
         # from reference spectrum
         dyn1 = exp1.loc[:, col].subtract(ref_spec[0], axis=0)
@@ -436,13 +458,6 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     if scaling == 'auto':
         dyn1 = auto_scaling(dyn1)
         dyn2 = auto_scaling(dyn2)
-
-    # perform projection if wanted
-    if projection is True:
-        proj_rows[0] = proj_rows[0] - 200
-        proj_rows[-1] = proj_rows[-1] - 200
-        dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
-        dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
 
     # transform to numpy array
     dyn1 = dyn1.to_numpy()
@@ -723,4 +738,9 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     fit_data["error"] = result.eval_uncertainty()
     fit_data["residual"] = result.residual
 
-    return fit_data, result.params.valuesdict(), result.params['xc'].stderr
+    # get stderr of params as dictionary
+    stderr = {}
+    for x in result.params.keys():
+        stderr[x] = result.params[x].stderr
+
+    return fit_data, result.params.valuesdict(), stderr

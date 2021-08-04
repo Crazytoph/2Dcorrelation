@@ -78,47 +78,9 @@ class CData:
         self.concentration = self.__name_split()[-2]
         self.data = self.__folder_opening()
         self.t_list = list(self.data.keys())
-        self.cd_df = self.cd_df()
         self.absorb_df = self.absorb_df()
-
-    def cd_df(self):
-        """Creates wavelength-temperature dataframe.
-
-        Takes the data dictionary and takes the CD value in relation to
-        the wavelength as index and the respective temperature as column
-        value
-
-        Returns:
-        ---------
-        cd_matrix: data-frame
-            index is the wavelengths, columns the temperature
-        """
-        # Define max. and min. values from measured wavelengths in nm
-        wave_max = 330
-        wave_min = 200
-
-        # create List of measured wavelength
-        wave_list = [wave_min]
-        for i in range(wave_max - wave_min):
-            wave_list.append(wave_min + i + 1)
-
-        # create DataFrame
-        cd_matrix = pd.DataFrame(wave_list, columns=[0])
-
-        # iterate through dictionary adding columns to dataframe
-        for key in self.data:
-            col = self.data[key]
-            col = col[..., 0:2]
-            df = pd.DataFrame(col, columns=[0, key])
-            cd_matrix = pd.merge(cd_matrix, df, on=0)
-
-        # order columns, change name to wavelength as index
-        cols = cd_matrix.columns
-        cd_matrix = cd_matrix[cols.sort_values()]
-        cd_matrix = cd_matrix.rename(columns={0: 'wavelength'})
-        cd_matrix = cd_matrix.set_index('wavelength')
-
-        return cd_matrix
+        self.cd_df = self.cd_df()
+        self.ht_df = self.ht_df()
 
     def absorb_df(self):
         """Creates wavelength-temperature dataframe.
@@ -158,6 +120,92 @@ class CData:
         absorb_matrix = absorb_matrix.set_index('wavelength')
 
         return absorb_matrix
+
+    def cd_df(self):
+        """Creates wavelength-temperature dataframe.
+
+        Takes the data dictionary and takes the CD value in relation to
+        the wavelength as index and the respective temperature as column
+        value
+
+        Returns:
+        ---------
+        cd_matrix: data-frame
+            index is the wavelengths, columns the temperature
+        """
+        # Define max. and min. values from measured wavelengths in nm
+        wave_max = 330
+        wave_min = 200
+
+        # create List of measured wavelength
+        wave_list = [wave_min]
+        for i in range(wave_max - wave_min):
+            wave_list.append(wave_min + i + 1)
+
+        # create DataFrame
+        cd_matrix = pd.DataFrame(wave_list, columns=[0])
+
+        # iterate through dictionary adding columns to dataframe
+        for key in self.data:
+            col = self.data[key]
+            col = col[..., 0:2]
+            df = pd.DataFrame(col, columns=[0, key])
+            cd_matrix = pd.merge(cd_matrix, df, on=0)
+
+        # order columns, change name to wavelength as index
+        cols = cd_matrix.columns
+        cd_matrix = cd_matrix[cols.sort_values()]
+        cd_matrix = cd_matrix.rename(columns={0: 'wavelength'})
+        cd_matrix = cd_matrix.set_index('wavelength')
+
+        # change unit into molar ellipticity, according to
+        # https://www.photophysics.com/circular-dichroism/chirascan-technology
+        # /circular-dichroism-spectroscopy-units-conversions/
+        absorbance = self.absorb_df.loc[260, 20]
+        c = absorbance / (0.02 * 0.1)  # [µg/mL]
+        molar_c = c * 10 ** (-6) / (4472760.4 * 10 ** (-3))  # [mol/l]
+        cd_matrix = 100 * cd_matrix / (molar_c * 0.1)     # pathway 1mm in cm
+
+        return cd_matrix
+
+    def ht_df(self):
+        """Creates wavelength-temperature dataframe.
+
+        Takes the data dictionary and takes the HT value in relation to
+        the wavelength as index and the respective temperature as column
+        value
+
+        Returns:
+        ---------
+        ht_matrix: data-frame
+            index is the wavelengths, columns the temperature
+        """
+        # Define max. and min. values from measured wavelengths in nm
+        wave_max = 330
+        wave_min = 200
+
+        # create List of measured wavelength
+        wave_list = [wave_min]
+        for i in range(wave_max - wave_min):
+            wave_list.append(wave_min + i + 1)
+
+        # create DataFrame
+        ht_matrix = pd.DataFrame(wave_list, columns=[0])
+
+        # iterate through dictionary adding columns to dataframe
+        for key in self.data:
+            col = self.data[key]
+            col = col[..., [0, 2]]
+            df = pd.DataFrame(col, columns=[0, key])
+            ht_matrix = pd.merge(ht_matrix, df, on=0)
+
+        # order columns, change name to wavelength as index
+        cols = ht_matrix.columns
+        ht_matrix = ht_matrix[cols.sort_values()]
+        ht_matrix = ht_matrix.rename(columns={0: 'wavelength'})
+        ht_matrix = ht_matrix.set_index('wavelength')
+
+        return ht_matrix
 
     def __name_split(self):
         """Splits name into list and formats it to get key information."""
