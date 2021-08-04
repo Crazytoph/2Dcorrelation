@@ -104,7 +104,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         extent = [y_min[c - 1], y_max[c - 1], x_min[c - 1], x_max[c - 1]]
 
         # create subplot and array
-        if len(data) < 4:
+        if len(data) < 2:
             width = len(data)
         else:
             width = 2
@@ -135,23 +135,29 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
             CS = ax.contour(arr, 6, colors='k', extent=extent, origin="lower")  # Negative contours default to dashed.
             ax.clabel(CS, fontsize=9, inline=True)
 
-        # make it nice
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+        # add label
+        ax.set_xlabel(xlabel, fontsize=16)
+        ax.set_ylabel(ylabel, fontsize=16)
+
+        # set fontsize ticks
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+
         # add subtitle
         if len(subtitle) < c:
-            ax.set_title("Fig. " + ascii_lowercase[c - 1])
+            ax.set_title("Fig. " + ascii_lowercase[c - 1], fontsize=16)
         else:
-            ax.set_title(subtitle[c - 1])
+            ax.set_title(subtitle[c - 1], fontsize=16)
         
         # add coolorbar for each subfigur
         divider = make_axes_locatable(ax)
         cax2 = divider.append_axes("right", size="5%", pad=0.05)
-        fig.colorbar(im, cax=cax2)
+        cbar = fig.colorbar(im, cax=cax2)
+        cbar.ax.tick_params(labelsize=16)
         c = c + 1  # push control variable
 
     # Title option
-    fig.suptitle(title, fontsize=16)
+    fig.suptitle(title, fontsize=21)
     plt.tight_layout()
     
     # clear lists
@@ -166,7 +172,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
 
 
 def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=False,
-             x_label="Temperature[°C]", y_label="CD values[mdeg]", title="", subtitle=[],
+             x_label="Temperature[°C]", y_label="CD values[molar mdeg]", title="", subtitle=[],
              y_scaling=False, baseline=False
              ):
     """Plots simple graph of DataFrames
@@ -265,10 +271,10 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
 
 def mult_func(rows, *probes, error={}, swap=False,
-              x_label="Temperature[°C]", y_label="CD values[mdeg]", title="", subtitle=[],
+              x_label="Temperature[°C]", y_label="CD values[molar mdeg]", title="", subtitle=[],
               backgroundcolor="white", marker=[], linestyle=[], label=None,
-              y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[]
-              ):
+              y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[],
+              sec_ax=None):
     """Plots one or multiple graphs of DataFrames or CData-Objects.
 
     This function plots for each value in 'rows' a graph from each object in 'probes'.
@@ -307,6 +313,8 @@ def mult_func(rows, *probes, error={}, swap=False,
              min and max value for baseline, Default: empty
         vertical_line: list of float or in
             values where to add vertical lines, labeld as "melting temperature", Default: empty
+        sec_ax: list
+            values for second y axis
 
     Returns:
     -------
@@ -317,9 +325,10 @@ def mult_func(rows, *probes, error={}, swap=False,
     To-Do:  defining line-style,
     """
     # create color list and color variables
-    #colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-    #          'tab:olive', 'tab:cyan']
-    colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']
+    colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+             'tab:olive', 'tab:cyan']
+    #colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']    # red for publication
+    #colors = ['midnightblue', 'cornflowerblue', 'aquamarine',  'blue' ]
 
     c = 1  # control variable
 
@@ -336,6 +345,8 @@ def mult_func(rows, *probes, error={}, swap=False,
 
         ax = fig.add_subplot((len(probes) // 3)+1, width, c)  # create subplot
         # iterate through all data to b plotted into one subfigure
+
+        k = 0  # control variable
         for i in subs:
             # check instance
             if not isinstance(i, pd.core.frame.DataFrame):
@@ -353,7 +364,7 @@ def mult_func(rows, *probes, error={}, swap=False,
             if x_max is None:
                 x_max = df.columns[-1]
                 
-            k = 0  # control variable
+
             # plot the data for all wanted rows
             for r in rows:
                 
@@ -379,7 +390,7 @@ def mult_func(rows, *probes, error={}, swap=False,
                 # plot errorbar if given
                 if r in error.keys():
                     yerr = error[r]
-                    ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
+                    #ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
                     # also create fill
                     ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
                 k = k + 1
@@ -396,9 +407,29 @@ def mult_func(rows, *probes, error={}, swap=False,
         if baseline is True:
             ax.plot([x_min, x_max], [0, 0], color='k', linestyle=':', linewidth=1)
 
+        # set fontsize ticks
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+
         # make it nice
         ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
         ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
+
+
+        if sec_ax is not None:
+            # put second y_axis for "GdmCl_0.5M" normed
+            # function to bring back values
+            def expand_back(y):
+                return y * (sec_ax[1] - sec_ax[0]) + sec_ax[0]
+
+            # inverse function
+            def norm(y):
+                return (y - sec_ax[0]) / (sec_ax[1] - sec_ax[0])
+
+            # put axis and label
+            secax = ax.secondary_yaxis('right', functions=(expand_back, norm))
+            secax.tick_params(labelsize=16)
+            secax.set_ylabel('Absorption [%]', fontsize=16)
 
         if label is None:  # add legend
             ax.legend(fontsize=16)
@@ -407,13 +438,13 @@ def mult_func(rows, *probes, error={}, swap=False,
 
         # add subtitle
         if len(subtitle) < c:
-            ax.set_title("Fig. " + ascii_lowercase[c - 1])
+            ax.set_title("Fig. " + ascii_lowercase[c - 1], fontsize=16)
         else:
-            ax.set_title(subtitle[c - 1])
+            ax.set_title(subtitle[c - 1], fontsize=16)
         c = c + 1
 
     # Title option
-    fig.suptitle(title, fontsize=16)
+    fig.suptitle(title, fontsize=21)
     plt.tight_layout()
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
@@ -425,7 +456,7 @@ def mult_func(rows, *probes, error={}, swap=False,
 
 
 def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=True,
-              x_label="Wavelength[nm]", y_label="CD values[°C]", title="", subtitle=[],
+              x_label="Wavelength[nm]", y_label="CD values[molar mdeg]", title="", subtitle=[],
               y_scaling=None, baseline=None,
               line1=None, line2=None, line3=None, line4=None, line5=None
               ):
@@ -539,7 +570,7 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
 
 
 def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_label="Temperature [°C]",
-               z_label="CD Value [mdeg]"):
+               z_label="CD Value [molar mdeg]"):
     """Plots 3d function.
      In progress.
      """
@@ -584,6 +615,11 @@ def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_l
     ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
     ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
     ax.set_zlabel(z_label, fontsize=16)  # Add a z-label to the axes.
+
+    # set fontsize ticks
+    ax.tick_params(axis='x', labelsize=16)
+    ax.tick_params(axis='y', labelsize=16)
+    ax.tick_params(axis='z', labelsize=16)
 
     if label is None:  # add legend
         ax.legend(fontsize=16)
