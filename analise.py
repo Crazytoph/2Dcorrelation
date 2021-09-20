@@ -21,7 +21,7 @@ Functions:
     min_wave(df, wave_min, wave_max):
         gives min. value and its wavelength for each column.
     interpolate(df, i):
-        interpolates a function throuhg column points for index 'i'.
+        interpolates a function through column points for index 'i'.
     derivative(df):
         gives the interpolated derivative of a DataFrame.
     sigmoid(x, a, b):
@@ -222,12 +222,11 @@ def auto_scaling(arr, axis=1):
         arr = arr.to_numpy()
 
     # perform pareto scaling
-    avg = arr.mean(axis=axis)  # mean
     std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
-        auto = (arr - np.reshape(avg, (1, len(avg)))) / np.reshape(std, (1, len(std)))
+        auto = arr / np.reshape(std, (1, len(std)))
     if axis == 1:
-        auto = (arr - np.reshape(avg, (len(avg), 1))) / np.reshape(std, (len(std), 1))
+        auto = arr / np.reshape(std, (len(std), 1))
 
     # reformat if necessary
     if df:
@@ -266,12 +265,11 @@ def pareto_scaling(arr, axis=1):
         arr = arr.to_numpy()
 
     # perform pareto scaling
-    avg = arr.mean(axis=axis)  # mean
     std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
-        pareto = (arr - np.reshape(avg, (1, len(avg)))) / np.sqrt(np.reshape(std, (1, len(std))))
+        pareto = arr / np.sqrt(np.reshape(std, (1, len(std))))
     if axis == 1:
-        pareto = (arr - np.reshape(avg, (len(avg), 1))) / np.sqrt(np.reshape(std, (len(std), 1)))
+        pareto = arr / np.sqrt(np.reshape(std, (len(std), 1)))
 
     # reformat if necessary
     if df:

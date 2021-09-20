@@ -43,8 +43,8 @@ from string import ascii_lowercase
 
 
 def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
-            c_min=[], c_max=[], x_label="temperature[°C]",
-            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines=True
+            c_min=[], c_max=[], c_label="test", hline=None, vline=None, x_label="temperature[°C]",
+            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines=None, backgroundcolor='white'
             ):
     """Plots heatmap.
        This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
@@ -65,12 +65,14 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         c_min, c_max: int
            min. and max. value for colorscale, if None, max and min value from
            array are taken
-        title, x_label, y_label: string
+        title, x_label, y_label, c_label: string
            description for plot
+        hline, vline: int
+            values for a possible horizontal/vertical line
         subtitle: list of strings
             titles for all subfigures
-        contour_lines: boolean
-            parameter for switching on/off contour lines
+        contour_lines: list
+            list for possible contour_lines
 
        Notes:
        -----
@@ -79,7 +81,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
     # ensure  we are interactive mode
     # this is default but if this notebook is executed out of order it may have been turned off
     plt.ion()
-    fig = plt.figure(facecolor="white")
+    fig = plt.figure(facecolor=backgroundcolor)
 
     # set control variable variable 'k' to one and plot for each heatmap in df
     c = 1
@@ -131,17 +133,30 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
                        extent=extent, origin="lower")
 
         # add contour lines of wanted
-        if contour_lines is True:
-            CS = ax.contour(arr, 6, colors='k', extent=extent, origin="lower")  # Negative contours default to dashed.
-            ax.clabel(CS, fontsize=9, inline=True)
+        if contour_lines is not None:
+            CS = ax.contour(arr, contour_lines, alpha=0.8, colors='k', extent=extent,
+                            linestyles=(["dashed"] * (len(contour_lines) // 2) + ["dotted"] +
+                                        ["dashed"] * (len(contour_lines) // 2)))
+            # Negative contours default to dashed.
+            #ax.clabel(CS, fontsize=9, inline=True)
 
         # add label
         ax.set_xlabel(xlabel, fontsize=16)
         ax.set_ylabel(ylabel, fontsize=16)
+        if hline is not None:
+            # for melting temp: linestyle="dotted", lindewidth=4
+            ax.axhline(y=hline, color='black', linewidth=2, linestyle='dotted', label='Melting Temperature')
+        if vline is not None:
+            ax.axvline(x=hline, color='black', linewidth=2, linestyle='solid', label='Melting Temperature')
 
         # set fontsize ticks
         ax.tick_params(axis='x', labelsize=16)
         ax.tick_params(axis='y', labelsize=16)
+        # change ticklabes *special*
+        """ax.set_xticks([0, 15, 33, 50, 70, 87])
+        ax.set_xticklabels([215, 230, 247, 265, 285, 'Absorbance'])
+        ax.set_yticks([0, 15, 33, 50, 70, 87])
+        ax.set_yticklabels([215, 230, 247, 265, 285, 'Absorbance'])"""
 
         # add subtitle
         if len(subtitle) < c:
@@ -149,11 +164,12 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         else:
             ax.set_title(subtitle[c - 1], fontsize=16)
         
-        # add coolorbar for each subfigur
+        # add colorbar for each subfigur
         divider = make_axes_locatable(ax)
         cax2 = divider.append_axes("right", size="5%", pad=0.05)
         cbar = fig.colorbar(im, cax=cax2)
         cbar.ax.tick_params(labelsize=16)
+        cbar.set_label(c_label, fontsize=16, rotation=90)
         c = c + 1  # push control variable
 
     # Title option
@@ -271,10 +287,11 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
 
 def mult_func(rows, *probes, error={}, swap=False,
-              x_label="Temperature[°C]", y_label="CD values[molar mdeg]", title="", subtitle=[],
-              backgroundcolor="white", marker=[], linestyle=[], label=None,
+              x_label="Temperature[°C]", y_label=r"CD- Values "r"$[\frac{deg \times cm^{2}}{dmol}]$",
+              title="", subtitle=[], backgroundcolor="white", marker=[], linestyle=[], label=None,
               y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[],
-              sec_ax=None):
+              sec_ax=None, colors=None
+              ):
     """Plots one or multiple graphs of DataFrames or CData-Objects.
 
     This function plots for each value in 'rows' a graph from each object in 'probes'.
@@ -325,10 +342,11 @@ def mult_func(rows, *probes, error={}, swap=False,
     To-Do:  defining line-style,
     """
     # create color list and color variables
-    colors = ['tab:blue', 'tab:orange', 'tab:green',  'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-             'tab:olive', 'tab:cyan']
-    #colors = ['black', 'lightcoral', 'red', 'firebrick', 'darkred']    # red for publication
-    #colors = ['midnightblue', 'cornflowerblue', 'aquamarine',  'blue' ]
+    if colors is None:
+        #colors = ['tab:blue', 'tab:orange',  'tab:red', 'tab:green', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+             #'tab:olive', 'tab:cyan']
+        #colors = ['black', 'firebrick', 'lightcoral', 'red',  'darkred']    # red for publication
+        colors = ['midnightblue', 'cornflowerblue', 'darkorange', 'aquamarine',  'blue', ]
 
     c = 1  # control variable
 
@@ -344,6 +362,7 @@ def mult_func(rows, *probes, error={}, swap=False,
             width = 3
 
         ax = fig.add_subplot((len(probes) // 3)+1, width, c)  # create subplot
+        ax.set_facecolor(backgroundcolor)
         # iterate through all data to b plotted into one subfigure
 
         k = 0  # control variable
@@ -383,8 +402,9 @@ def mult_func(rows, *probes, error={}, swap=False,
                 x = x[~(pd.isna(y))]          # remove NaN values
                 y = y[~(pd.isna(y))]
 
-                ax.plot(x, y, linestyle=linestyle[k], marker=marker[k],
-                        color=colors[k % 10], linewidth=1.5, label=r
+                ax.plot(x, y,
+                        linestyle=linestyle[k], marker=marker[k],
+                        color=colors[k % 10], linewidth=2, label=r
                         )
 
                 # plot errorbar if given
@@ -410,6 +430,7 @@ def mult_func(rows, *probes, error={}, swap=False,
         # set fontsize ticks
         ax.tick_params(axis='x', labelsize=16)
         ax.tick_params(axis='y', labelsize=16)
+
 
         # make it nice
         ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
@@ -446,6 +467,7 @@ def mult_func(rows, *probes, error={}, swap=False,
     # Title option
     fig.suptitle(title, fontsize=21)
     plt.tight_layout()
+
 
     # stuff for jupyter copied from 'https://github.com/matplotlib/ipympl'
     widgets.AppLayout(
@@ -570,7 +592,7 @@ def functionT(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Tr
 
 
 def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_label="Temperature [°C]",
-               z_label="CD Value [molar mdeg]"):
+               z_label=r"CD- Values "r"$[\frac{deg \times cm^{2}}{dmol}]$", backgroundcolor='white'):
     """Plots 3d function.
      In progress.
      """
@@ -580,8 +602,8 @@ def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_l
         df = data
 
     plt.ion()
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, facecolor=backgroundcolor)
+    ax.set_facecolor(backgroundcolor)
     # Make data.
     y, x = np.meshgrid(df.columns.astype(float), df.index)
     z = df.values
@@ -601,7 +623,7 @@ def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_l
     surf.set_edgecolors(surf.to_rgba(surf._A))
 
     # Add a color bar which maps values to colors.
-    fig.colorbar(surf, shrink=0.5, aspect=5)
+    #fig.colorbar(surf, shrink=0.7, aspect=5)
 
     # optional: delete background
     """fig.set_facecolor('white')
@@ -612,14 +634,14 @@ def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_l
     ax.w_zaxis.pane.fill = False"""
 
     # make it nice
-    ax.set_xlabel(x_label, fontsize=16)  # Add an x-label to the axes.
-    ax.set_ylabel(y_label, fontsize=16)  # Add a y-label to the axes.
-    ax.set_zlabel(z_label, fontsize=16)  # Add a z-label to the axes.
+    ax.set_xlabel(x_label, fontsize=16, labelpad=10)  # Add an x-label to the axes.
+    ax.set_ylabel(y_label, fontsize=16,  labelpad=10)  # Add a y-label to the axes.
+    ax.set_zlabel(z_label, fontsize=16,  labelpad=10)  # Add a z-label to the axes.
 
     # set fontsize ticks
-    ax.tick_params(axis='x', labelsize=16)
-    ax.tick_params(axis='y', labelsize=16)
-    ax.tick_params(axis='z', labelsize=16)
+    ax.tick_params(axis='x', labelsize=12)
+    ax.tick_params(axis='y', labelsize=12)
+    ax.tick_params(axis='z', labelsize=12)
 
     if label is None:  # add legend
         ax.legend(fontsize=16)

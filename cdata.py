@@ -22,7 +22,7 @@ class CData:
     An object of this class contains the whole data of one measurement of the
     JASCO 8015 CD_Spectrometer. For each temperature step, values are saved
     in array and combined with temperature in the dictionary 'data'. Other
-    parameters represent the sample type defined in through the repository.
+    parameters represent the sample type defined through the repository.
     The methods do small data treatment and simple calculations.
 
     Attributes:
@@ -38,11 +38,18 @@ class CData:
         data: dictionary
             measured values for each temperature step
         t_list: list
-            list of all measured temperatures
-        cd_df: DataFrame
-            df of all CD-values depending on wavelength and temperature
+            list of all measured temperatures rounded to integers
+        t_list: exact
+            list of exact measured temperatures
         absorb_df: DataFrame
             df of all Absorbance-values depending on wavelength and temperature
+        cd_df: DataFrame
+            df of all CD-values depending on wavelength and temperature
+        std: int
+            max standard derivative of CD-Values between 300 nm and 330 nm
+        ht_df
+            df of all HT values depending on wavelength and temperature
+
 
     Methods:
     -------
@@ -54,7 +61,7 @@ class CData:
             split path into folder names
         __folder_opening():
             opens each file in folder
-        --file_opening():
+        __file_opening():
             extracts data from file
     """
 
@@ -76,10 +83,11 @@ class CData:
         self.origami = self.__name_split()[-3]
         self.denaturant = self.__name_split()[-1]
         self.concentration = self.__name_split()[-2]
-        self.data = self.__folder_opening()
+        self.data, self.t_list_exact = self.__folder_opening()
         self.t_list = list(self.data.keys())
         self.absorb_df = self.absorb_df()
         self.cd_df = self.cd_df()
+        self.std = self.std()
         self.ht_df = self.ht_df()
 
     def absorb_df(self):
@@ -159,14 +167,24 @@ class CData:
         cd_matrix = cd_matrix.set_index('wavelength')
 
         # change unit into molar ellipticity, according to
-        # https://www.photophysics.com/circular-dichroism/chirascan-technology
-        # /circular-dichroism-spectroscopy-units-conversions/
+        # SOURCE: https://www.chem.uci.edu/~dmitryf/manuals/Fundamentals/CD%20practical%20guide.pdf
         absorbance = self.absorb_df.loc[260, 20]
         c = absorbance / (0.02 * 0.1)  # [µg/mL]
-        molar_c = c * 10 ** (-6) / (4472760.4 * 10 ** (-3))  # [mol/l]
-        cd_matrix = 100 * cd_matrix / (molar_c * 0.1)     # pathway 1mm in cm
+        molar_weigth = 4472760.4       # [g/mol]
+        cd_matrix = molar_weigth * cd_matrix / (c * (10**-3))  # [deg*cm^2 /dmol]
 
         return cd_matrix
+
+    def std(self):
+        """ Returns the maximal standard derivative of the CD-Data between 300 nm and 330 nm as an aproximation
+        for the noise.
+
+        Returns:
+            std: int
+        """
+        std = self.cd_df.loc[300:330].std(axis=0).max()
+
+        return std
 
     def ht_df(self):
         """Creates wavelength-temperature dataframe.
@@ -230,9 +248,10 @@ class CData:
             data: dictionary
                 each array as value with the measured temperature as key
         """
-        # getting list of files and create empty dictionary
+        # getting list of files and create empty dictionary and list
         files = os.listdir(self.path)
         data = {}
+        temp_exact = []
 
         # loop for each file
         for i in range(len(files)):
@@ -262,7 +281,10 @@ class CData:
             # add file to dictionary
             data[temp] = self.__file_opening(repository)
 
-        return data
+            # add exact temperature to list
+            temp_exact.append(exact)
+
+        return data, temp_exact
 
     @staticmethod
     def __file_opening(filename):
