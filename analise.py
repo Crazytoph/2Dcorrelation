@@ -51,12 +51,11 @@ def centering(df):
 
     Return:
     ------
-    center: like dtype of arr
-        centered data
+    center: DataFrame
     """
     # center
     avg = weighted_mean(df)
-    center = df - avg
+    center = df.sub(avg, axis='index')
 
     return center
 
@@ -65,9 +64,8 @@ def weighted_mean(df):
     """ Calculates the weighted mean of unevenly-spaced data.
 
     Based on:
-    Noda, I. and Y.Ozaki.
-    “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
-    Chapter: "Practical Computation of 2D Correlation Spectra"
+    Noda, I. (2003). Two-dimensional correlation analysis of unevenly spaced spectral data.
+    Applied Spectroscopy, 57(8), 1049–1051. https://doi.org/10.1366/000370203322259039
 
      Parameter:
         ---------
@@ -75,25 +73,21 @@ def weighted_mean(df):
 
         Return:
         ------
-        mean: numpy array
+        mean: DataFrame
             vector with mean value per row
     """
     # get col, idx and convert to numpy
     col = df.columns
     idx = df.index
-    arr = df.to_numpy()
 
-    # get Temperature as List ad T_0 and T_(M+1)
-    temp_list = list(col)
-    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
 
     # calculate mean
-    norm = 0
-    mean = np.zeros((idx.size, 1))
-    for i in range(col.size):
-        mean = mean + arr[:, i, None] * (temp_list[i + 2] - temp_list[i])
-        norm = norm + (temp_list[i + 2] - temp_list[i])
-    mean = mean / norm
+    mean = df.mul(delta_t, axis='columns').mean(axis='columns').div(3 * col[-1] - col[-2] + col[2] - 3 * col[1])
     return mean
 
 
@@ -338,13 +332,13 @@ def projection_matrix(data_df, row_min_max, positive_projection_trick=True, cent
     return null_space_proj
 
 
-def perturbation_moving_window(data_df, window_size=3):
+def perturbation_moving_window(df, window_size=3):
     """Calculates synchronous and asynchronous perturbation-correlation moving-window
     correlation spectra. 
     
     Parameters:
     ----------
-        data_df: DataFrame
+        df: DataFrame
             original Data
         window_size: int
             window_size, must be uneven!
@@ -361,38 +355,51 @@ def perturbation_moving_window(data_df, window_size=3):
         https://doi.org/10.1016/B978-0-12-811220-5.00002-2
     """
     # define basic variables
-    temp_list = np.array(data_df.columns)
-    rows, cols = data_df.shape
+    idx = df.index
+    col = np.array(df.columns)
+    rows, cols = df.shape
     m = int((window_size - 1) / 2)
 
-    # creating template matrices for synchronous and asynchronous spectra
-    sync = np.ones((rows, cols - 2 * m))
-    assync = np.ones((rows, cols - 2 * m))
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
 
     # creating Hilbert-Noda-matrix for async spectrum
-    arr = np.arange(1, window_size + 1)
-    h_n_m = arr - np.array([arr]).T + np.identity(window_size)
-    h_n_m = 1 / (np.pi * h_n_m)
-    h_n_m = (h_n_m - h_n_m.T) / 2
-    h_n_m = h_n_m[..., :window_size]
+    arr = np.array(col).reshape(1, cols) - np.array(col).reshape(cols, 1) + np.identity(cols)
+    h_n_m = 1 / (2 * np.pi * arr)
+    h_n_m = np.multiply(h_n_m, delta_t)
+    h_n_m = (h_n_m - h_n_m.T) / 2  # change diag to zero
+
+    # creating template matrices for synchronous and asynchronous spectra
+    sync_uneven = np.ones((rows, cols - 2 * m))
+    assync_uneven = np.ones((rows, cols - 2 * m))
 
     # calculating spectra for each window
-    for j in range(m, len(temp_list) - m):
+    for j in range(m, cols - m):
         # dynamic temperature
-        temp_mean = np.sum(temp_list[j - m:j + m + 1]) / window_size
-        temp_dyn = temp_list[j - m:j + m + 1] - temp_mean
+        temp_mean = np.divide(np.sum(np.multiply(t_list_extended[j - m + 1: j + m + 2], delta_t[j - m: j + m + 1])),
+                              (t_list_extended[j + m + 2] + t_list_extended[j + m + 1] - t_list_extended[j - m + 1] -
+                               t_list_extended[j - m]))
+        temp_dyn = t_list_extended[j - m + 1: j + m + 2] - temp_mean
+
         # dynamic spectrum
-        window_vector = data_df.loc[:, temp_list[j - m:j + m + 1]]
-        dyn_spec = centering(window_vector).to_numpy()
-        # calculating synchronous and asynchronous spectra in matrix form
-        sync[:, j - m] = np.matmul(dyn_spec, temp_dyn) / (2 * m)
-        assync[:, j - m] = np.matmul(dyn_spec, np.matmul(h_n_m, temp_dyn)) / (2 * m)
+        window_vector = df.loc[:, t_list_extended[j - m + 1: j + m + 2]]
+        dyn = centering(window_vector).to_numpy()
 
-    # transforming to DataFrame
-    sync = pd.DataFrame(sync, index=data_df.index, columns=temp_list[m:-m])
-    assync = pd.DataFrame(assync, index=data_df.index, columns=temp_list[m:-m])
+        # calculate synchronous and asynchronous spectrum with matrix
+        sync_uneven[:, j - m] = np.dot(np.multiply(dyn, delta_t[j - m: j + m + 1]), temp_dyn.T) / (
+                    2 * (col[j + m] - col[j - m]))
+        assync_uneven[:, j - m] = np.dot(np.multiply(dyn, delta_t[j - m: j + m + 1]),
+                                         np.dot(h_n_m[j - m: j + m + 1, j - m: j + m + 1], temp_dyn.T)) / (
+                                              2 * (col[j + m] - col[j - m]))
 
-    return sync, assync
+    # transforming back to DataFrame
+    sync_uneven = pd.DataFrame(sync_uneven, index=idx, columns=col[m:-m])
+    assync_uneven = pd.DataFrame(assync_uneven, index=idx, columns=col[m:-m])
+
+    return sync_uneven, assync_uneven
 
 
 def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
@@ -431,23 +438,29 @@ def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
     exp1 = exp_spec[0]
     exp2 = exp_spec[-1]
 
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
+
     # create dynamic spectrum from average or reference or none if ref_spec == [0]
     if ref_spec is None:
         # from average spectrum
         dyn1 = centering(exp1.loc[:, col])
         dyn2 = centering(exp2.loc[:, col])
-    elif isinstance(ref_spec[0], pd.core.frame.DataFrame):
-        dyn1 = exp1.loc[:, col]
-        dyn2 = exp2.loc[:, col]
-    else:
+    elif isinstance(ref_spec[0], pd.core.frame.Series):
         # from reference spectrum
         dyn1 = exp1.loc[:, col].subtract(ref_spec[0], axis=0)
         dyn2 = exp2.loc[:, col].subtract(ref_spec[-1], axis=0)
-
         # extra centering if wanted
         if center is True:
             dyn1 = centering(dyn1)
             dyn2 = centering(dyn2)
+    else:
+        print("WARNING: Reference spectrum not valid as series")
+        dyn1 = exp1.loc[:, col]
+        dyn2 = exp2.loc[:, col]
 
     # perform scaling if wanted
     if scaling == 'pareto':
@@ -460,34 +473,22 @@ def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
     # transform to numpy array
     dyn1 = dyn1.to_numpy()
     dyn2 = dyn2.to_numpy()
-
-    # get column and row numbers, create disrel_spec
     rows, cols = dyn1.shape
-    disrel_spec = np.zeros((rows, rows))
 
     # creating Hilbert-Noda-matrix for async spectrum
-    arr = np.arange(1, cols + 1)
-    h_n_m = arr - np.array([arr]).T + np.identity(cols)
-    h_n_m = 1 / (np.pi * h_n_m)
-    h_n_m = (h_n_m - h_n_m.T) / 2
-    h_n_m = h_n_m[..., :cols]
-    
+    arr = np.array(col).reshape(1, cols) - np.array(col).reshape(cols, 1) + np.identity(cols)
+    h_n_m = 1 / (2 * np.pi * arr)
+    h_n_m = np.multiply(h_n_m, delta_t)
+    h_n_m = (h_n_m - h_n_m.T) / 2  # change diag to zero
+
     # calculate synchronous and asynchronous spectrum with matrix
-    sync_spec = np.dot(dyn1, dyn2.T) / (cols - 1)
-    async_spec = np.dot(dyn1, np.dot(h_n_m, dyn2.T)) / (cols - 1)
+    sync_uneven = np.dot(np.multiply(dyn1, delta_t), dyn2.T) / (2 * (col[-1] - col[0]))
+    assync_uneven = np.dot(np.multiply(dyn1, delta_t), np.dot(h_n_m, dyn2.T)) / (2 * (col[-1] - col[0]))
 
-    # disrelation spectra
-    #for i in range(rows):
-       # for j in range(rows):
-           # kappa = np.sign(np.sum(dyn1[i, :-1] * dyn2[j, 1:] - dyn1[i, 1:] * dyn2[j, :-1]))
-            #disrel_spec[i, j] = kappa * np.sqrt(sync_spec[i, i] * sync_spec[j, j] - sync_spec[i, j] * sync_spec[j,i])
+    sync_uneven = pd.DataFrame(sync_uneven, index=idx, columns=idx).astype('float64')
+    assync_uneven = pd.DataFrame(assync_uneven, index=idx, columns=idx).astype('float64')
 
-    # return spectra as DataFrame
-    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx, dtype=float)
-    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx, dtype=float)
-    #disrel_spec = pd.DataFrame(disrel_spec, index=idx, columns=idx, dtype=float)
-
-    return sync_spec, async_spec, #disrel_spec
+    return sync_uneven, assync_uneven,
 
 
 def max_wave(df, wave_min=None, wave_max=None):
