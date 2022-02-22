@@ -168,12 +168,17 @@ class CData:
 
         # change unit into molar ellipticity, according to
         # SOURCE: https://www.chem.uci.edu/~dmitryf/manuals/Fundamentals/CD%20practical%20guide.pdf
-        absorbance = self.absorb_df.loc[260, 20]
-        c = absorbance / (0.02 * 0.1)  # [µg/mL]
-        molar_weigth = 4472760.4       # [g/mol]
-        cd_matrix = molar_weigth * cd_matrix / (c * (10**-3))  # [deg*cm^2 /dmol]
-
-        return cd_matrix
+        # https://www.promega.com/-/media/files/resources/application-notes/pathlength/
+        # calculating-nucleic-acid-or-protein-concentration-using-the-glomax-multi-microplate-instrument.pdf?la=en
+        
+        # molar attentuation coefficient calculated with : use https://www.molbiotools.com/dnacalculator.php
+        array = np.asarray(self.t_list)
+        idx = (np.abs(array - 20)).argmin()
+        t_room = array[idx]
+        absorbance = self.absorb_df.loc[260, t_room]
+        c = absorbance / (0.0261 * 0.1)  # [µg/mL]
+        molar_weigth = 4472760.4  # [g/mol]
+        cd_matrix = molar_weigth * cd_matrix / (c * (10 * -3))  # [degcm^2 /dmol]
 
     def std(self):
         """ Returns the maximal standard derivative of the CD-Data between 300 nm and 330 nm as an aproximation
