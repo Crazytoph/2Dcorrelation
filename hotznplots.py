@@ -343,10 +343,10 @@ def mult_func(rows, *probes, error={}, swap=False,
     """
     # create color list and color variables
     if colors is None:
-        #colors = ['tab:blue', 'tab:orange',  'tab:red', 'tab:green', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-             #'tab:olive', 'tab:cyan']
+        colors = ['tab:blue', 'tab:orange',  'tab:red', 'tab:green', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+             'tab:olive', 'tab:cyan']
         #colors = ['black', 'firebrick', 'lightcoral', 'red',  'darkred']    # red for publication
-        colors = ['midnightblue', 'cornflowerblue', 'darkorange', 'aquamarine',  'blue', ]
+        #colors = ['midnightblue', 'cornflowerblue', 'darkorange', 'aquamarine',  'blue', ]
 
     c = 1  # control variable
 
