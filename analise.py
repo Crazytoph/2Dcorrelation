@@ -21,7 +21,7 @@ Functions:
     min_wave(df, wave_min, wave_max):
         gives min. value and its wavelength for each column.
     interpolate(df, i):
-        interpolates a function throuhg column points for index 'i'.
+        interpolates a function through column points for index 'i'.
     derivative(df):
         gives the interpolated derivative of a DataFrame.
     sigmoid(x, a, b):
@@ -39,7 +39,7 @@ from scipy.optimize import curve_fit
 import lmfit
 
 
-def centering(arr):
+def centering(df):
     """Centers data by subtracting the average.
 
     Centering given data by subtracting the average of respectively each
@@ -47,16 +47,15 @@ def centering(arr):
 
     Parameter:
     ---------
-    arr: numpy array or dataframe
+    df: Dataframe
 
     Return:
     ------
-    center: like dtype of arr
-        centered data
+    center: DataFrame
     """
     # center
-    avg = weighted_mean(arr)
-    center = arr - avg
+    avg = weighted_mean(df)
+    center = df.sub(avg, axis='index')
 
     return center
 
@@ -65,9 +64,8 @@ def weighted_mean(df):
     """ Calculates the weighted mean of unevenly-spaced data.
 
     Based on:
-    Noda, I. and Y.Ozaki.
-    “Two - Dimensional Correlation Spectroscopy: Applications in Vibrational and Optical Spectroscopy.” (2002).
-    Chapter: "Practical Computation of 2D Correlation Spectra"
+    Noda, I. (2003). Two-dimensional correlation analysis of unevenly spaced spectral data.
+    Applied Spectroscopy, 57(8), 1049–1051. https://doi.org/10.1366/000370203322259039
 
      Parameter:
         ---------
@@ -75,25 +73,21 @@ def weighted_mean(df):
 
         Return:
         ------
-        mean: numpy array
+        mean: DataFrame
             vector with mean value per row
     """
     # get col, idx and convert to numpy
     col = df.columns
     idx = df.index
-    arr = df.to_numpy()
 
-    # get Temperature as List ad T_0 and T_(M+1)
-    temp_list = list(col)
-    temp_list = [2 * temp_list[0] - temp_list[1]] + temp_list + [temp_list[-1] * 2 - temp_list[-2]]
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
 
     # calculate mean
-    norm = 0
-    mean = np.zeros((idx.size, 1))
-    for i in range(col.size):
-        mean = mean + arr[:, i, None] * (temp_list[i + 2] - temp_list[i])
-        norm = norm + (temp_list[i + 2] - temp_list[i])
-    mean = mean / norm
+    mean = df.mul(delta_t, axis='columns').mean(axis='columns').div(3 * col[-1] - col[-2] + col[2] - 3 * col[1])
     return mean
 
 
@@ -222,12 +216,11 @@ def auto_scaling(arr, axis=1):
         arr = arr.to_numpy()
 
     # perform pareto scaling
-    avg = arr.mean(axis=axis)  # mean
     std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
-        auto = (arr - np.reshape(avg, (1, len(avg)))) / np.reshape(std, (1, len(std)))
+        auto = arr / np.reshape(std, (1, len(std)))
     if axis == 1:
-        auto = (arr - np.reshape(avg, (len(avg), 1))) / np.reshape(std, (len(std), 1))
+        auto = arr / np.reshape(std, (len(std), 1))
 
     # reformat if necessary
     if df:
@@ -266,12 +259,11 @@ def pareto_scaling(arr, axis=1):
         arr = arr.to_numpy()
 
     # perform pareto scaling
-    avg = arr.mean(axis=axis)  # mean
     std = arr.std(axis=axis, ddof=1)  # standard deviation
     if axis == 0:
-        pareto = (arr - np.reshape(avg, (1, len(avg)))) / np.sqrt(np.reshape(std, (1, len(std))))
+        pareto = arr / np.sqrt(np.reshape(std, (1, len(std))))
     if axis == 1:
-        pareto = (arr - np.reshape(avg, (len(avg), 1))) / np.sqrt(np.reshape(std, (len(std), 1)))
+        pareto = arr / np.sqrt(np.reshape(std, (len(std), 1)))
 
     # reformat if necessary
     if df:
@@ -280,80 +272,137 @@ def pareto_scaling(arr, axis=1):
     return pareto
 
 
-def projection_matrix(data_df, rows, alpha=0, positive_projection=True):
+def projection_matrix(data_df, row_min_max, positive_projection_trick=True, center=True):
     """Returns a new data matrix with the projected portion of the 'idx'-rows relative to 'alpha'.
      Method is based on [1]_
      Parameters:
      ----------
-        data_df: DataFrame or numpy array
+        data_df: DataFrame
             original data
-        rows: list of integer
-            rows to be used for projection
-        alpha: integer
-            proportion of projection into new matrix
+        row_min_max: list of min and max row
+            rows to be used for projection vector
         positive_projection: boolean
-            parameter determining whether a positive projection should be done
-    Note:
-    ----
-        positive projection only works with single rows
+            parameter determining whether a positive projection trick should be done
+        center: boolean
+            whether dynamic spectrum must be created
+
     References:
     ----------
         ..[1]: Noda, I. (2010). Projection two-dimensional correlation analysis. Journal of Molecular Structure,
          974(1–3), 116–126. https://doi.org/10.1016/j.molstruc.2009.11.047
     Return:
     ------
-        projection_mat: DataFrame
-            projection matrix
+        null_space_proj: DataFrame
+            null_space_projection matrix
      """
-    df = False
-    # check if 'data_df' is DataFrame
-    if not isinstance(data_df, np.ndarray):
-        df = True
-
-        # get col und idx names
-        col = data_df.columns
-        idx = data_df.index
-
-        # prepare 'response_val' and 'data' as numpy arrays
-        response_val = data_df.loc[rows[0]:rows[-1]].T
-        response_val = response_val.to_numpy()
-        data = data_df.T.to_numpy()
+    # centering if wanted, arr
+    if center:
+        df = centering(data_df)
     else:
-        response_val = data_df[rows[0]:(rows[-1] + 1)].T
-        data = data_df.T
+        df = data_df
+    arr = df.T.to_numpy()
+    row_len = 1     # number of rows for reshaping vector, default = 1
 
-    if positive_projection is False:
-        # get projection matrix and residual-maker-matrix('residual_mat')'
-        eigenvector = np.linalg.eigh(np.dot(response_val, response_val.T))[1]
-        projection_mat = np.dot(eigenvector, eigenvector.T)
-        residual_mat = np.diag([1] * len(projection_mat)) - projection_mat
+    # positive projection trick only for vector
+    if row_min_max[0] != row_min_max[-1]:
+        positive_projection_trick = False
+        row_len = row_min_max[-1] - row_min_max[0] + 1
 
-        # mix both according to proportion-factor
-        mixed_projected_data = np.dot(residual_mat + alpha * projection_mat, data)
-    else:
-        # norm vector and calculate loading vector
-        normed_vec = response_val / np.linalg.norm(response_val)
-        loading_vector = np.dot(data.T, normed_vec)
+    # define projecting vector
+    proj_vec = df.loc[row_min_max[0]:row_min_max[-1]].to_numpy().reshape(df.shape[1], row_len)
 
-        # change all negative values to zero
-        for i in range(loading_vector.shape[0]):
-            if loading_vector[i] <= 0:
-                loading_vector[i] = 0
+    # calculate projecting matrix as y (yT,y)^-1 yT A
+    proj_mat = np.matmul(proj_vec,
+                         np.matmul(
+                             np.linalg.inv(np.matmul(proj_vec.T, proj_vec)),
+                             np.matmul(proj_vec.T, arr)
+                         )
+                         )
 
-        # calculated positive projected data
-        projected_data_plus = np.dot(normed_vec, loading_vector.T)
-        # and mix it
-        mixed_projected_data = data - (1 - alpha) * projected_data_plus
+    # positive projection trick: each vector for yT a_j < 0 is set zero
+    if positive_projection_trick:
+        for i in range(proj_mat.shape[1]):
+            if np.matmul(proj_vec.T, proj_mat[:, i]) < 0:
+                proj_mat[:, i] = np.zeros(proj_mat.shape[0])
 
-    # change back to DataFrame
-    if df is True:
-        mixed_projected_data = pd.DataFrame(mixed_projected_data, index=idx, columns=col)
+    # calculate the null space projection by subtracting the projecting matrix from the dynamic spectrum
+    null_space_proj = arr - proj_mat
+    # return new spectrum as DataFrame
+    null_space_proj = pd.DataFrame(null_space_proj.T, index=df.index, columns=df.columns)
+    return null_space_proj
 
-    return mixed_projected_data.T
+
+def perturbation_moving_window(df, window_size=3):
+    """Calculates synchronous and asynchronous perturbation-correlation moving-window
+    correlation spectra. 
+    
+    Parameters:
+    ----------
+        df: DataFrame
+            original Data
+        window_size: int
+            window_size, must be uneven!
+    
+    Return:
+    ------
+        sync, assync: DataFrames
+            Synchronous and Assynchronous Spectra
+
+    Reference:
+    ---------
+        Noda, I. (2018). Advances in Two-Dimensional Correlation Spectroscopy (2DCOS).
+        In Frontiers and Advances in Molecular Spectroscopy. Elsevier Inc.
+        https://doi.org/10.1016/B978-0-12-811220-5.00002-2
+    """
+    # define basic variables
+    idx = df.index
+    col = np.array(df.columns)
+    rows, cols = df.shape
+    m = int((window_size - 1) / 2)
+
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
+
+    # creating Hilbert-Noda-matrix for async spectrum
+    arr = np.array(col).reshape(1, cols) - np.array(col).reshape(cols, 1) + np.identity(cols)
+    h_n_m = 1 / (2 * np.pi * arr)
+    h_n_m = np.multiply(h_n_m, delta_t)
+    h_n_m = (h_n_m - h_n_m.T) / 2  # change diag to zero
+
+    # creating template matrices for synchronous and asynchronous spectra
+    sync_uneven = np.ones((rows, cols - 2 * m))
+    assync_uneven = np.ones((rows, cols - 2 * m))
+
+    # calculating spectra for each window
+    for j in range(m, cols - m):
+        # dynamic temperature
+        temp_mean = np.divide(np.sum(np.multiply(t_list_extended[j - m + 1: j + m + 2], delta_t[j - m: j + m + 1])),
+                              (t_list_extended[j + m + 2] + t_list_extended[j + m + 1] - t_list_extended[j - m + 1] -
+                               t_list_extended[j - m]))
+        temp_dyn = t_list_extended[j - m + 1: j + m + 2] - temp_mean
+
+        # dynamic spectrum
+        window_vector = df.loc[:, t_list_extended[j - m + 1: j + m + 2]]
+        dyn = centering(window_vector).to_numpy()
+
+        # calculate synchronous and asynchronous spectrum with matrix
+        sync_uneven[:, j - m] = np.dot(np.multiply(dyn, delta_t[j - m: j + m + 1]), temp_dyn.T) / (
+                    2 * (col[j + m] - col[j - m]))
+        assync_uneven[:, j - m] = np.dot(np.multiply(dyn, delta_t[j - m: j + m + 1]),
+                                         np.dot(h_n_m[j - m: j + m + 1, j - m: j + m + 1], temp_dyn.T)) / (
+                                              2 * (col[j + m] - col[j - m]))
+
+    # transforming back to DataFrame
+    sync_uneven = pd.DataFrame(sync_uneven, index=idx, columns=col[m:-m])
+    assync_uneven = pd.DataFrame(assync_uneven, index=idx, columns=col[m:-m])
+
+    return sync_uneven, assync_uneven
 
 
-def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
-                projection=False, proj_positivity=True, proj_rows=None, proj_alpha=0):
+def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
     """ Performs 2D correlation analysis.
     Calculates the Synchronous and Asynchronous 2D correlation of a given
     Spectrum according to [1]_ .
@@ -366,6 +415,9 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     ref_spec: DataFrame
         Reference Spectrum, if None Average is taken to calculate Dynamic
         Spectrum.
+    center: Boolean
+        whether centering should be done ADDITIONALLY after subtracting a reference spectrum,
+        only relevant if one is given. Default: False
     scaling: String
         Defines type of scaling if there is no reference spectrum, can be 'pareto' or 'centering'
     Returns:
@@ -386,20 +438,29 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
     exp1 = exp_spec[0]
     exp2 = exp_spec[-1]
 
-    # create dynamic spectrum from average or reference
+    # extend measurement points and to create delta_t
+    t_list_extended = np.array(col)
+    t_list_extended = np.insert(t_list_extended, 0, 2 * col[0] - col[1])
+    t_list_extended = np.append(t_list_extended, 2 * col[-1] - col[-2])
+    delta_t = t_list_extended[2:] - t_list_extended[:-2]
+
+    # create dynamic spectrum from average or reference or none if ref_spec == [0]
     if ref_spec is None:
         # from average spectrum
         dyn1 = centering(exp1.loc[:, col])
         dyn2 = centering(exp2.loc[:, col])
-    else:
+    elif isinstance(ref_spec[0], pd.core.frame.Series):
         # from reference spectrum
         dyn1 = exp1.loc[:, col].subtract(ref_spec[0], axis=0)
         dyn2 = exp2.loc[:, col].subtract(ref_spec[-1], axis=0)
-
         # extra centering if wanted
         if center is True:
             dyn1 = centering(dyn1)
             dyn2 = centering(dyn2)
+    else:
+        print("WARNING: Reference spectrum not valid as series")
+        dyn1 = exp1.loc[:, col]
+        dyn2 = exp2.loc[:, col]
 
     # perform scaling if wanted
     if scaling == 'pareto':
@@ -409,44 +470,25 @@ def correlation(*exp_spec, ref_spec=None, center=True, scaling=None,
         dyn1 = auto_scaling(dyn1)
         dyn2 = auto_scaling(dyn2)
 
-    # perform projection if wanted
-    if projection is True:
-        proj_rows[0] = proj_rows[0] - 200
-        proj_rows[-1] = proj_rows[-1] - 200
-        dyn1 = projection_matrix(dyn1, proj_rows, proj_alpha, proj_positivity)
-        dyn2 = projection_matrix(dyn2, proj_rows, proj_alpha, proj_positivity)
-
     # transform to numpy array
     dyn1 = dyn1.to_numpy()
     dyn2 = dyn2.to_numpy()
-
-    # get column and row numbers, create disrel_spec
     rows, cols = dyn1.shape
-    disrel_spec = np.zeros((rows, rows))
 
     # creating Hilbert-Noda-matrix for async spectrum
-    arr = np.arange(1, cols + 1)
-    h_n_m = arr - np.array([arr]).T + np.identity(cols)
-    h_n_m = 1 / (np.pi * h_n_m)
-    h_n_m = (h_n_m - h_n_m.T) / 2
-    h_n_m = h_n_m[..., :cols]
-    
+    arr = np.array(col).reshape(1, cols) - np.array(col).reshape(cols, 1) + np.identity(cols)
+    h_n_m = 1 / (2 * np.pi * arr)
+    h_n_m = np.multiply(h_n_m, delta_t)
+    h_n_m = (h_n_m - h_n_m.T) / 2  # change diag to zero
+
     # calculate synchronous and asynchronous spectrum with matrix
-    sync_spec = np.dot(dyn1, dyn2.T) / (cols - 1)
-    async_spec = np.dot(dyn1, np.dot(h_n_m, dyn2.T)) / (cols - 1)
+    sync_uneven = np.dot(np.multiply(dyn1, delta_t), dyn2.T) / (2 * (col[-1] - col[0]))
+    assync_uneven = np.dot(np.multiply(dyn1, delta_t), np.dot(h_n_m, dyn2.T)) / (2 * (col[-1] - col[0]))
 
-    # disrelation spectra
-    #for i in range(rows):
-       # for j in range(rows):
-           # kappa = np.sign(np.sum(dyn1[i, :-1] * dyn2[j, 1:] - dyn1[i, 1:] * dyn2[j, :-1]))
-            #disrel_spec[i, j] = kappa * np.sqrt(sync_spec[i, i] * sync_spec[j, j] - sync_spec[i, j] * sync_spec[j,i])
+    sync_uneven = pd.DataFrame(sync_uneven, index=idx, columns=idx).astype('float64')
+    assync_uneven = pd.DataFrame(assync_uneven, index=idx, columns=idx).astype('float64')
 
-    # return spectra as DataFrame
-    sync_spec = pd.DataFrame(sync_spec, index=idx, columns=idx, dtype=float)
-    async_spec = pd.DataFrame(async_spec, index=idx, columns=idx, dtype=float)
-    #disrel_spec = pd.DataFrame(disrel_spec, index=idx, columns=idx, dtype=float)
-
-    return sync_spec, async_spec, #disrel_spec
+    return sync_uneven, assync_uneven,
 
 
 def max_wave(df, wave_min=None, wave_max=None):
@@ -695,4 +737,9 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     fit_data["error"] = result.eval_uncertainty()
     fit_data["residual"] = result.residual
 
-    return fit_data, result.params.valuesdict(), result.params['xc'].stderr
+    # get stderr of params as dictionary
+    stderr = {}
+    for x in result.params.keys():
+        stderr[x] = result.params[x].stderr
+
+    return fit_data, result.params.valuesdict(), stderr
