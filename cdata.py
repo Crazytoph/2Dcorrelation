@@ -294,10 +294,10 @@ class CData:
                 temp = temp[-7:-4]
             elif is_number(temp[-6:-4]):
                 temp = temp[-6:-4]
-            elif is_numner(temp[-5:-4]):
+            elif is_number(temp[-5:-4]):
                 temp = temp[-5:-4]
             else:
-                temp = temp[-4]
+                temp = error
 
             # round temp to integer
             exact = float(temp)

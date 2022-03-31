@@ -51,7 +51,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
        'x_max, 'y_min', y_max')
        Parameters:
        ----------
-        *data: DataFrames or CData-object
+        *data: DataFrames or CData-object  -> * indicates the possibility of multiple df
            data for plot
         x_min, x_max: int
            Default: None
@@ -203,8 +203,8 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
     'r'
     Parameters:
     ----------
-        *df: Tuple of DataFrames
-            data for plot
+        *df: Tuple of DataFrames -> * indicates the possibility of multiple df
+           data for plot
         rows: list
             rows of DataFrames which should be plotted
         x_min, x_max, y_min, y_max: int
@@ -309,7 +309,7 @@ def mult_func(rows, *probes, error={}, swap=False,
     ----------
         rows: list of index-values
             rows of DataFrames which should be plotted
-        *probes: Tuple or List of cdata.CData objects or DataFrames
+        *probes: Tuple or List of cdata.CData objects or DataFrames -> * indicates the possibility of multiple df
             list containing data for one subplot
         error: dictionary of graph-error couple
             error vales for graphs, Default: empty

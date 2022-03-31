@@ -708,7 +708,7 @@ def lm_fit(df, wave=260, guess=[], f_type='s1', method='leastsq'):
     data = df.loc[wave, :]  # get y points
     data.index = data.index.astype(float)
 
-    # get model chosen by 'function'
+    # get model chosen by 'f_type'
     if f_type == 's1':
         model = lmfit.Model(s1)
     if f_type == 'linear':
