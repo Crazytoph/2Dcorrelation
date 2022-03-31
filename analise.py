@@ -488,7 +488,7 @@ def correlation(*exp_spec, ref_spec=None, center=False, scaling=None):
     sync_uneven = pd.DataFrame(sync_uneven, index=idx, columns=idx).astype('float64')
     assync_uneven = pd.DataFrame(assync_uneven, index=idx, columns=idx).astype('float64')
 
-    return sync_uneven, assync_uneven,
+    return sync_uneven, assync_uneven
 
 
 def max_wave(df, wave_min=None, wave_max=None):
