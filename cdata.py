@@ -33,8 +33,8 @@ class CData:
             type of DNA measured
         denaturant:  string
             type of denaturant used
-        concentration: string
-            denaturant concentration used
+        concentration: float
+            denaturant concentration measured with the molar attenuation coefficient
         data: dictionary
             measured values for each temperature step
         t_list: list
@@ -82,11 +82,11 @@ class CData:
         self.dna = self.__name_split()[-4]
         self.origami = self.__name_split()[-3]
         self.denaturant = self.__name_split()[-1]
-        self.concentration = self.__name_split()[-2]
         self.data, self.t_list_exact = self.__folder_opening()
         self.t_list = list(self.data.keys())
         self.absorb_df = self.absorb_df()
-        self.cd_df = self.cd_df()
+        self.concentration = self.cd_df()[1]
+        self.cd_df = self.cd_df()[0]
         self.std = self.std()
         self.ht_df = self.ht_df()
 
@@ -140,6 +140,9 @@ class CData:
         ---------
         cd_matrix: data-frame
             index is the wavelengths, columns the temperature
+
+        molar concentration: float
+            concentration in mol/l calculated from the molar attenuation coefficient
         """
         # Define max. and min. values from measured wavelengths in nm
         wave_max = 330
@@ -168,12 +171,20 @@ class CData:
 
         # change unit into molar ellipticity, according to
         # SOURCE: https://www.chem.uci.edu/~dmitryf/manuals/Fundamentals/CD%20practical%20guide.pdf
-        absorbance = self.absorb_df.loc[260, 20]
-        c = absorbance / (0.02 * 0.1)  # [µg/mL]
-        molar_weigth = 4472760.4       # [g/mol]
-        cd_matrix = molar_weigth * cd_matrix / (c * (10**-3))  # [deg*cm^2 /dmol]
+        # https://www.promega.com/-/media/files/resources/application-notes/pathlength/
+        # calculating-nucleic-acid-or-protein-concentration-using-the-glomax-multi-microplate-instrument.pdf?la=en
+        
+        # molar attentuation coefficient calculated with : use https://www.molbiotools.com/dnacalculator.php
+        array = np.asarray(self.t_list)
+        idx = (np.abs(array - 20)).argmin()
+        t_room = array[idx]
+        absorbance = self.absorb_df.loc[260, t_room]
+        c = absorbance / (0.0261 * 0.1)  # [µg/mL]
+        molar_weigth = 4472760.4  # [g/mol]
+        molar_conc = c * (10 ** -3) / molar_weigth  # [mol/l]
+        cd_matrix = cd_matrix / molar_conc  # [deg cm^2 /dmol]
 
-        return cd_matrix
+        return cd_matrix, molar_conc
 
     def std(self):
         """ Returns the maximal standard derivative of the CD-Data between 300 nm and 330 nm as an aproximation
@@ -264,12 +275,31 @@ class CData:
 
             # getting temperature from filenames#
             temp = files[i]
-            if temp[-7] == '.':
-                temp = temp[-9:-4]
-            else:
-                temp = temp[-6:-4]
 
-            # round temp to int
+            def is_number(s):
+                """ Check whether string s is number."""
+                try:
+                    float(s)
+                    return True
+                except ValueError:
+                    pass
+                return False
+
+            # check how long temperature at the end of string is and change temperature
+            if is_number(temp[-9:-4]):
+                temp = temp[-9:-4]
+            elif is_number(temp[-8:-4]):
+                temp = temp[-8:-4]
+            elif is_number(temp[-7:-4]):
+                temp = temp[-7:-4]
+            elif is_number(temp[-6:-4]):
+                temp = temp[-6:-4]
+            elif is_numner(temp[-5:-4]):
+                temp = temp[-5:-4]
+            else:
+                temp = temp[-4]
+
+            # round temp to integer
             exact = float(temp)
             up = np.ceil(exact)
             down = np.floor(exact)

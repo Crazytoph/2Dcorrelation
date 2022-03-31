@@ -43,8 +43,8 @@ from string import ascii_lowercase
 
 
 def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
-            c_min=[], c_max=[], c_label="test", hline=None, vline=None, x_label="temperature[°C]",
-            y_label="wavelength[nm]", title="Heatmap", subtitle=[], contour_lines=None, backgroundcolor='white'
+            c_min=[], c_max=[], c_label="test", hline=None, vline=None, x_label="temperature / °C",
+            y_label="wavelength / nm", title="Heatmap", subtitle=[], contour_lines=None, backgroundcolor='white'
             ):
     """Plots heatmap.
        This function plots heatmaps of DataFrames 'df' from in given area ('x_min,
@@ -138,7 +138,7 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
                             linestyles=(["dashed"] * (len(contour_lines) // 2) + ["dotted"] +
                                         ["dashed"] * (len(contour_lines) // 2)))
             # Negative contours default to dashed.
-            #ax.clabel(CS, fontsize=9, inline=True)
+            #ax.clabel(CS, fontsize=9, inline=True) # label the contour lines
 
         # add label
         ax.set_xlabel(xlabel, fontsize=16)
@@ -152,6 +152,13 @@ def heatmap(*data, x_min=[], x_max=[], y_min=[], y_max=[], swap=True,
         # set fontsize ticks
         ax.tick_params(axis='x', labelsize=16)
         ax.tick_params(axis='y', labelsize=16)
+        # set visibility of x-axis as False
+        #xax = ax.axes.get_xaxis()
+        #xax = xax.set_visible(False)
+
+        # set visibility of y-axis as False
+        #yax = ax.axes.get_yaxis()
+        #yax = yax.set_visible(False)
         # change ticklabes *special*
         """ax.set_xticks([0, 15, 33, 50, 70, 87])
         ax.set_xticklabels([215, 230, 247, 265, 285, 'Absorbance'])
@@ -287,7 +294,7 @@ def function(rows, *df, x_min=None, x_max=None, y_min=None, y_max=None, swap=Fal
 
 
 def mult_func(rows, *probes, error={}, swap=False,
-              x_label="Temperature[°C]", y_label=r"CD- Values "r"$[\frac{deg \times cm^{2}}{dmol}]$",
+              x_label="temperature / °C", y_label=r"molar CD "r"$/ \ \frac{deg \times cm^{2}}{dmol}$",
               title="", subtitle=[], backgroundcolor="white", marker=[], linestyle=[], label=None,
               y_scaling=False, y_min=[], y_max=[], baseline=False,  x_min=None, x_max=None, vertical_line=[],
               sec_ax=None, colors=None
@@ -309,7 +316,7 @@ def mult_func(rows, *probes, error={}, swap=False,
         swap: boolean
             parameter determining whether to change axes, Default: True
         x_label, y_label,title: string
-            description for plot, Default: "Temperatue [°C]", "CD values [mdeg]", ""
+            description for plot, Default: "temperature /°C", "molar cd / mdeg /cm^2 dmol", ""
         subtitle: list of strings
             title for each subplot, Default" empty
         backgroundcolor: string-code
@@ -410,9 +417,9 @@ def mult_func(rows, *probes, error={}, swap=False,
                 # plot errorbar if given
                 if r in error.keys():
                     yerr = error[r]
-                    #ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)])
+                    ax.errorbar(x, y, yerr=yerr, color=colors[k % len(colors)], alpha=0.6)
                     # also create fill
-                    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
+                    #ax.fill_between(x, y - yerr, y + yerr, alpha=0.2, color=colors[k % len(colors)])
                 k = k + 1
 
         if len(vertical_line) >= c:
@@ -441,16 +448,16 @@ def mult_func(rows, *probes, error={}, swap=False,
             # put second y_axis for "GdmCl_0.5M" normed
             # function to bring back values
             def expand_back(y):
-                return y * (sec_ax[1] - sec_ax[0]) + sec_ax[0]
+                return (y - sec_ax[0]) / (sec_ax[1] - sec_ax[0])
 
             # inverse function
             def norm(y):
-                return (y - sec_ax[0]) / (sec_ax[1] - sec_ax[0])
+                return y * (sec_ax[1] - sec_ax[0]) + sec_ax[0]
 
             # put axis and label
             secax = ax.secondary_yaxis('right', functions=(expand_back, norm))
             secax.tick_params(labelsize=16)
-            secax.set_ylabel('Absorption [%]', fontsize=16)
+            secax.set_ylabel('ssDNA fraction / %', fontsize=16)
 
         if label is None:  # add legend
             ax.legend(fontsize=16)
@@ -636,7 +643,7 @@ def function3d(data, title="3D-Plot", label=None, x_label="Wavelength [nm]", y_l
     # make it nice
     ax.set_xlabel(x_label, fontsize=16, labelpad=10)  # Add an x-label to the axes.
     ax.set_ylabel(y_label, fontsize=16,  labelpad=10)  # Add a y-label to the axes.
-    ax.set_zlabel(z_label, fontsize=16,  labelpad=10)  # Add a z-label to the axes.
+    ax.set_zlabel(z_label, fontsize=16,  labelpad=10, rotation=180)  # Add a z-label to the axes.
 
     # set fontsize ticks
     ax.tick_params(axis='x', labelsize=12)
