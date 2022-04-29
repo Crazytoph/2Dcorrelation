@@ -340,6 +340,10 @@ class CData:
         # Parameter for head and tail part of document which will be deleted
         head = 21
         tail = 152
+        for i  in range(len(list_of_lines)):          
+            if "Extended Information" in list_of_lines[i]:
+                tail =  i - 1
+        
         del list_of_lines[tail:]
         del list_of_lines[:head]
 
