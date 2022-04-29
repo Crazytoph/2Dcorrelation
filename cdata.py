@@ -79,9 +79,9 @@ class CData:
         Access type (public, protected, private) needs still to be defined.
         """
         self.path = path
-        self.dna = self.__name_split()[-4]
-        self.origami = self.__name_split()[-3]
-        self.denaturant = self.__name_split()[-1]
+        #self.dna = self.__name_split()[-4]
+        #self.origami = self.__name_split()[-3]
+        #self.denaturant = self.__name_split()[-1]
         self.data, self.t_list_exact = self.__folder_opening()
         self.t_list = list(self.data.keys())
         self.absorb_df = self.absorb_df()
